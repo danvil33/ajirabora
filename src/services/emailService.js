@@ -1,128 +1,39 @@
 import axios from 'axios';
 
-const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email';
-const LOGO_URL = 'https://i.imgur.com/AEM9UJR.png';
-
+// Use environment variable for API key (safe for Vercel)
 const BREVO_CONFIG = {
-  API_KEY: import.meta.env.VITE_BREVO_API_KEY?.trim(),
+  API_KEY: import.meta.env.VITE_BREVO_API_KEY,
   SENDER_EMAIL: 'dallen02a@gmail.com',
-  SENDER_NAME: 'AjiraBora',
+  SENDER_NAME: 'AjiraBora'
 };
 
+const LOGO_URL = 'https://i.imgur.com/AEM9UJR.png';
+
 const getAppUrl = () => {
-  if (typeof window !== 'undefined' && window.location?.origin) {
+  if (typeof window !== 'undefined') {
     return window.location.origin;
   }
   return 'https://ajirabora.com';
 };
 
-const logBrevoDebug = () => {
-  console.log('=== BREVO DEBUG START ===');
-  console.log('BREVO KEY EXISTS:', !!BREVO_CONFIG.API_KEY);
-  console.log('BREVO KEY LENGTH:', BREVO_CONFIG.API_KEY?.length || 0);
-  console.log(
-    'BREVO KEY PREFIX:',
-    BREVO_CONFIG.API_KEY ? BREVO_CONFIG.API_KEY.slice(0, 10) : 'missing'
-  );
-  console.log('BREVO SENDER EMAIL:', BREVO_CONFIG.SENDER_EMAIL);
-  console.log('=== BREVO DEBUG END ===');
-};
-
-const getBrevoErrorMessage = (error) => {
-  const status = error?.response?.status;
-  const data = error?.response?.data;
-  const apiMessage = data?.message;
-  const apiCode = data?.code;
-
-  if (!BREVO_CONFIG.API_KEY) {
-    return 'Brevo API key is missing. Check VITE_BREVO_API_KEY in Vercel and redeploy.';
-  }
-
-  if (status === 401 && apiMessage) {
-    return `Brevo unauthorized: ${apiMessage}${apiCode ? ` (${apiCode})` : ''}`;
-  }
-
-  if (status === 400 && apiMessage) {
-    return `Brevo bad request: ${apiMessage}`;
-  }
-
-  if (status === 403 && apiMessage) {
-    return `Brevo forbidden: ${apiMessage}`;
-  }
-
-  return apiMessage || error?.message || 'Failed to send email.';
-};
-
-const sendBrevoEmail = async ({ toEmail, toName, subject, htmlContent }) => {
-  logBrevoDebug();
-
-  if (!BREVO_CONFIG.API_KEY) {
-    const errorMessage =
-      'Brevo API key is missing. Add VITE_BREVO_API_KEY to Vercel, then redeploy.';
-    console.error(errorMessage);
-    return { success: false, error: errorMessage };
-  }
-
-  if (!toEmail) {
-    const errorMessage = 'Recipient email is required.';
-    console.error(errorMessage);
-    return { success: false, error: errorMessage };
-  }
-
+export const sendVerificationEmail = async (userEmail, userName, verificationLink) => {
   try {
+    const appUrl = getAppUrl();
+    const currentYear = new Date().getFullYear();
+    
     const response = await axios.post(
-      BREVO_API_URL,
+      'https://api.brevo.com/v3/smtp/email',
       {
         sender: {
           name: BREVO_CONFIG.SENDER_NAME,
-          email: BREVO_CONFIG.SENDER_EMAIL,
+          email: BREVO_CONFIG.SENDER_EMAIL
         },
-        to: [
-          {
-            email: toEmail,
-            name: toName || 'User',
-          },
-        ],
-        subject,
-        htmlContent,
-      },
-      {
-        headers: {
-          'api-key': BREVO_CONFIG.API_KEY,
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-      }
-    );
-
-    console.log('✅ Brevo email sent:', response?.data);
-    return {
-      success: true,
-      data: response?.data,
-      messageId: response?.data?.messageId || null,
-    };
-  } catch (error) {
-    console.error('❌ BREVO ERROR STATUS:', error?.response?.status);
-    console.error('❌ BREVO ERROR RESPONSE:', error?.response?.data);
-    console.error('❌ BREVO ERROR MESSAGE:', error?.message);
-    console.error('❌ FULL BREVO ERROR:', error);
-
-    return {
-      success: false,
-      error: getBrevoErrorMessage(error),
-    };
-  }
-};
-
-export const sendVerificationEmail = async (
-  userEmail,
-  userName,
-  verificationLink
-) => {
-  const appUrl = getAppUrl();
-  const currentYear = new Date().getFullYear();
-
-  const htmlContent = `<!DOCTYPE html>
+        to: [{
+          email: userEmail,
+          name: userName
+        }],
+        subject: 'Verify Your Email Address - AjiraBora',
+        htmlContent: `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
@@ -156,7 +67,7 @@ export const sendVerificationEmail = async (
       <img src="${LOGO_URL}" alt="AjiraBora" class="logo">
     </div>
     <div class="content">
-      <h2>Welcome, ${userName || 'User'}! 👋</h2>
+      <h2>Welcome, ${userName}! 👋</h2>
       <p class="message">Please verify your email address to start your journey with AjiraBora.</p>
       <a href="${verificationLink}" class="button">Verify Email Address →</a>
       <div class="expiry">⏰ This link expires in 24 hours</div>
@@ -167,21 +78,40 @@ export const sendVerificationEmail = async (
     </div>
   </div>
 </body>
-</html>`;
-
-  return sendBrevoEmail({
-    toEmail: userEmail,
-    toName: userName,
-    subject: 'Verify Your Email Address - AjiraBora',
-    htmlContent,
-  });
+</html>`
+      },
+      {
+        headers: {
+          'api-key': BREVO_CONFIG.API_KEY,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
+      }
+    );
+    
+    return { success: true, messageId: response.data.messageId };
+    
+  } catch (error) {
+    console.error('Email error:', error.response?.data || error.message);
+    return { success: false, error: error.response?.data?.message || error.message };
+  }
 };
 
 export const sendWelcomeEmail = async (userEmail, userName) => {
-  const appUrl = getAppUrl();
-  const currentYear = new Date().getFullYear();
-
-  const htmlContent = `<!DOCTYPE html>
+  try {
+    const appUrl = getAppUrl();
+    const currentYear = new Date().getFullYear();
+    
+    await axios.post(
+      'https://api.brevo.com/v3/smtp/email',
+      {
+        sender: {
+          name: BREVO_CONFIG.SENDER_NAME,
+          email: BREVO_CONFIG.SENDER_EMAIL
+        },
+        to: [{ email: userEmail, name: userName }],
+        subject: 'Welcome to AjiraBora! 🚀',
+        htmlContent: `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
@@ -214,7 +144,7 @@ export const sendWelcomeEmail = async (userEmail, userName) => {
       <img src="${LOGO_URL}" alt="AjiraBora" class="logo">
     </div>
     <div class="content">
-      <h2>Welcome to AjiraBora, ${userName || 'User'}! 🎉</h2>
+      <h2>Welcome to AjiraBora, ${userName}! 🎉</h2>
       <p class="message">Your email has been successfully verified. You're now ready to explore opportunities.</p>
       <a href="${appUrl}" class="button">Get Started →</a>
     </div>
@@ -224,135 +154,161 @@ export const sendWelcomeEmail = async (userEmail, userName) => {
     </div>
   </div>
 </body>
-</html>`;
-
-  return sendBrevoEmail({
-    toEmail: userEmail,
-    toName: userName,
-    subject: 'Welcome to AjiraBora! 🚀',
-    htmlContent,
-  });
+</html>`
+      },
+      {
+        headers: {
+          'api-key': BREVO_CONFIG.API_KEY,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    
+    return { success: true };
+  } catch (error) {
+    return { success: false };
+  }
 };
 
+// Send job alert to a job seeker
 export const sendNewJobAlertEmail = async (userEmail, userName, jobData) => {
-  const appUrl = getAppUrl();
-  const currentYear = new Date().getFullYear();
-
-  const htmlContent = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>New Job Alert - AjiraBora</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Poppins', Arial, sans-serif; background: #f5f7fa; margin: 0; padding: 20px; }
-    .container { max-width: 550px; margin: 0 auto; background: white; border-radius: 24px; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.1); }
-    .header { background: #1A2A4A; padding: 25px; text-align: center; }
-    .logo { color: #FF8C00; font-size: 24px; font-weight: bold; margin: 0; }
-    .content { padding: 30px; }
-    .badge { display: inline-block; background: #e8f5e9; color: #2e7d32; padding: 4px 12px; border-radius: 20px; font-size: 12px; margin-bottom: 15px; }
-    .job-card { background: #f8f9fa; padding: 20px; border-radius: 16px; margin: 20px 0; border-left: 4px solid #FF8C00; }
-    .job-title { color: #1A2A4A; font-size: 20px; margin: 0 0 5px; font-weight: 700; }
-    .company { color: #666; margin-bottom: 10px; font-weight: 500; }
-    .detail { display: inline-block; margin-right: 15px; font-size: 13px; color: #666; }
-    .description { color: #555; font-size: 14px; line-height: 1.6; margin: 15px 0; }
-    .button { background: #FF8C00; color: white; padding: 12px 28px; text-decoration: none; border-radius: 50px; display: inline-block; margin-top: 10px; font-weight: 600; }
-    .footer { text-align: center; padding: 20px; font-size: 12px; color: #8b8ba3; background: #f8f9fc; border-top: 1px solid #edf2f7; }
-    .footer a { color: #FF8C00; text-decoration: none; }
-    @media (max-width: 480px) {
-      .container { max-width: 100%; }
-      .content { padding: 20px; }
-      .job-title { font-size: 18px; }
-      .detail { display: block; margin: 5px 0; }
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h1 class="logo">AjiraBora</h1>
-    </div>
-    <div class="content">
-      <div style="text-align: center;">
-        <span class="badge">📢 NEW OPPORTUNITY</span>
-      </div>
-
-      <h2 style="color: #1A2A4A; margin-bottom: 10px;">Hello ${userName || 'User'}! 👋</h2>
-
-      <p>A new job has been posted that might interest you:</p>
-
-      <div class="job-card">
-        <h3 class="job-title">${jobData?.title || 'New Job Opportunity'}</h3>
-        <p class="company">🏢 ${jobData?.company || 'AjiraBora'}</p>
-        <div>
-          <span class="detail">📍 ${jobData?.location || 'Remote'}</span>
-          ${jobData?.salary ? `<span class="detail">💰 ${jobData.salary}</span>` : ''}
-          <span class="detail">📋 ${jobData?.type || 'Full-time'}</span>
-          ${jobData?.level ? `<span class="detail">📊 ${jobData.level}</span>` : ''}
-        </div>
-        <div class="description">
-          ${
-            jobData?.description
-              ? `${jobData.description.substring(0, 200)}...`
-              : 'No description provided'
-          }
-        </div>
-      </div>
-
-      <div style="text-align: center;">
-        <a href="${appUrl}/job/${jobData?.id || ''}/apply" class="button">
-          Apply Now →
-        </a>
-      </div>
-
-      <p style="font-size: 12px; color: #999; margin-top: 20px; text-align: center;">
-        Don't miss this opportunity! Click the button above to apply.
-      </p>
-    </div>
-    <div class="footer">
-      <p>© ${currentYear} AjiraBora. Connecting Tanzania's talent.</p>
-      <p><small>You're receiving this because you registered as a job seeker.</small></p>
-      <p><small><a href="${appUrl}/settings">Unsubscribe</a> from job alerts</small></p>
-    </div>
-  </div>
-</body>
-</html>`;
-
-  return sendBrevoEmail({
-    toEmail: userEmail,
-    toName: userName,
-    subject: `📢 New Job Alert: ${jobData?.title || 'New Opportunity'} at ${jobData?.company || 'AjiraBora'}`,
-    htmlContent,
-  });
+  try {
+    const appUrl = getAppUrl();
+    const currentYear = new Date().getFullYear();
+    
+    const response = await axios.post(
+      'https://api.brevo.com/v3/smtp/email',
+      {
+        sender: {
+          name: BREVO_CONFIG.SENDER_NAME,
+          email: BREVO_CONFIG.SENDER_EMAIL
+        },
+        to: [{ email: userEmail, name: userName }],
+        subject: `📢 New Job Alert: ${jobData.title} at ${jobData.company}`,
+        htmlContent: `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="UTF-8">
+            <title>New Job Alert - AjiraBora</title>
+            <style>
+              * { margin: 0; padding: 0; box-sizing: border-box; }
+              body { font-family: 'Poppins', Arial, sans-serif; background: #f5f7fa; margin: 0; padding: 20px; }
+              .container { max-width: 550px; margin: 0 auto; background: white; border-radius: 24px; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.1); }
+              .header { background: #1A2A4A; padding: 25px; text-align: center; }
+              .logo { color: #FF8C00; font-size: 24px; font-weight: bold; margin: 0; }
+              .content { padding: 30px; }
+              .badge { display: inline-block; background: #e8f5e9; color: #2e7d32; padding: 4px 12px; border-radius: 20px; font-size: 12px; margin-bottom: 15px; }
+              .job-card { background: #f8f9fa; padding: 20px; border-radius: 16px; margin: 20px 0; border-left: 4px solid #FF8C00; }
+              .job-title { color: #1A2A4A; font-size: 20px; margin: 0 0 5px; font-weight: 700; }
+              .company { color: #666; margin-bottom: 10px; font-weight: 500; }
+              .detail { display: inline-block; margin-right: 15px; font-size: 13px; color: #666; }
+              .description { color: #555; font-size: 14px; line-height: 1.6; margin: 15px 0; }
+              .button { background: #FF8C00; color: white; padding: 12px 28px; text-decoration: none; border-radius: 50px; display: inline-block; margin-top: 10px; font-weight: 600; transition: all 0.3s ease; }
+              .button:hover { background: #e07c00; transform: scale(1.02); }
+              .footer { text-align: center; padding: 20px; font-size: 12px; color: #8b8ba3; background: #f8f9fc; border-top: 1px solid #edf2f7; }
+              .footer a { color: #FF8C00; text-decoration: none; }
+              @media (max-width: 480px) {
+                .container { max-width: 100%; }
+                .content { padding: 20px; }
+                .job-title { font-size: 18px; }
+                .detail { display: block; margin: 5px 0; }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">
+                <h1 class="logo">AjiraBora</h1>
+              </div>
+              <div class="content">
+                <div style="text-align: center;">
+                  <span class="badge">📢 NEW OPPORTUNITY</span>
+                </div>
+                
+                <h2 style="color: #1A2A4A; margin-bottom: 10px;">Hello ${userName}! 👋</h2>
+                
+                <p>A new job has been posted that might interest you:</p>
+                
+                <div class="job-card">
+                  <h3 class="job-title">${jobData.title}</h3>
+                  <p class="company">🏢 ${jobData.company}</p>
+                  <div>
+                    <span class="detail">📍 ${jobData.location || 'Remote'}</span>
+                    ${jobData.salary ? `<span class="detail">💰 ${jobData.salary}</span>` : ''}
+                    <span class="detail">📋 ${jobData.type || 'Full-time'}</span>
+                    ${jobData.level ? `<span class="detail">📊 ${jobData.level}</span>` : ''}
+                  </div>
+                  <div class="description">
+                    ${jobData.description ? jobData.description.substring(0, 200) + '...' : 'No description provided'}
+                  </div>
+                </div>
+                
+                <div style="text-align: center;">
+                  <a href="${appUrl}/job/${jobData.id}/apply" class="button">
+                    Apply Now →
+                  </a>
+                </div>
+                
+                <p style="font-size: 12px; color: #999; margin-top: 20px; text-align: center;">
+                  Don't miss this opportunity! Click the button above to apply.
+                </p>
+              </div>
+              <div class="footer">
+                <p>© ${currentYear} AjiraBora. Connecting Tanzania's talent.</p>
+                <p><small>You're receiving this because you registered as a job seeker.</small></p>
+                <p><small><a href="${appUrl}/settings">Unsubscribe</a> from job alerts</small></p>
+              </div>
+            </div>
+          </body>
+          </html>
+        `
+      },
+      {
+        headers: {
+          'api-key': BREVO_CONFIG.API_KEY,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
+      }
+    );
+    
+    console.log(`Job alert sent to ${userEmail}`);
+    return { success: true };
+    
+  } catch (error) {
+    console.error('Job alert email error:', error);
+    return { success: false };
+  }
 };
 
-export const sendBatchJobAlerts = async (jobSeekers = [], jobData) => {
+// Send batch job alerts to multiple job seekers
+export const sendBatchJobAlerts = async (jobSeekers, jobData) => {
   const results = {
     sent: 0,
     failed: 0,
-    total: jobSeekers.length,
+    total: jobSeekers.length
   };
-
+  
+  // Send in batches of 5 to avoid rate limits
   const batchSize = 5;
-
   for (let i = 0; i < jobSeekers.length; i += batchSize) {
     const batch = jobSeekers.slice(i, i + batchSize);
-
-    const batchResults = await Promise.all(
-      batch.map((seeker) =>
-        sendNewJobAlertEmail(seeker?.email, seeker?.name, jobData)
-      )
+    const promises = batch.map(seeker => 
+      sendNewJobAlertEmail(seeker.email, seeker.name, jobData)
     );
-
-    batchResults.forEach((result) => {
-      if (result.success) results.sent += 1;
-      else results.failed += 1;
+    
+    const batchResults = await Promise.all(promises);
+    batchResults.forEach(result => {
+      if (result.success) results.sent++;
+      else results.failed++;
     });
-
+    
+    // Delay between batches
     if (i + batchSize < jobSeekers.length) {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
   }
-
+  
   return results;
 };
