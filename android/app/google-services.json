@@ -1,0 +1,76 @@
+{
+  "project_info": {
+    "project_number": "234880016165",
+    "project_id": "wesocio-b1c78",
+    "storage_bucket": "wesocio-b1c78.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:234880016165:android:c9a7783f65fb800da144cc",
+        "android_client_info": {
+          "package_name": "com.ahmetocak.chatapp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "234880016165-d0ihml81bb04nqgtog041f6mjhl3g27g.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAidt05aZv1gxKWYLvQxxbSl8PJAjYKYjA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "234880016165-d0ihml81bb04nqgtog041f6mjhl3g27g.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:234880016165:android:80c843698c136a57a144cc",
+        "android_client_info": {
+          "package_name": "com.ajirabora.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "234880016165-bhd6r01mr0js9tsifq6vr7s8cmh7jbrd.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.ajirabora.app",
+            "certificate_hash": "1ad49083c8d7529a55df2275072b27f16d1910b1"
+          }
+        },
+        {
+          "client_id": "234880016165-d0ihml81bb04nqgtog041f6mjhl3g27g.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAidt05aZv1gxKWYLvQxxbSl8PJAjYKYjA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "234880016165-d0ihml81bb04nqgtog041f6mjhl3g27g.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

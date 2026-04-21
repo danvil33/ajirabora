@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">AjiraBora</string>
+    <string name="title_activity_main">AjiraBora</string>
+    <string name="package_name">com.ajirabora.app</string>
+    <string name="custom_url_scheme">com.ajirabora.app</string>
+    <string name="server_client_id">234880016165-d0ihml81bb04nqgtog041f6mjhl3g27g.apps.googleusercontent.com</string>
+</resources>
