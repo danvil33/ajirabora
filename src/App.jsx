@@ -15,7 +15,7 @@ import JobApplyPage from "./pages/JobApplyPage";
 import TermsOfService from "./pages/TermsOfService";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import CookiePolicy from "./pages/CookiePolicy";
-import CookieConsent from "./components/CookieConsent";
+import CookieConsent from "./Components/CookieConsent";
 import FreelancerProfile from "./pages/FreelancerProfile";
 import Freelancers from "./pages/Freelancers";
 import FreelancerDetail from "./pages/FreelancerDetail";
