@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../Context/AuthContext";
 import { getJobById } from "../services/jobService";
 import { submitApplication, hasUserApplied } from "../services/applicationService";
 import { getUserProfile, isProfileComplete } from "../services/userService";

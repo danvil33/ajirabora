@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { getJobs } from "../services/jobService";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../Context/AuthContext";
 import Header from "../Components/Header/Header";
 import Footer from "../Components/Footer/Footer";
 import { 

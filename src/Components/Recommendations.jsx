@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../Context/AuthContext";
 import { getJobs } from "../services/jobService";
 import { getRecommendedJobs } from "../services/matchingService";
 import { FaSpinner, FaStar, FaChartLine } from "react-icons/fa";

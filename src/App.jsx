@@ -1,6 +1,6 @@
 import React from "react";
 import { HashRouter as Router, Routes, Route, useLocation } from "react-router-dom";
-import { AuthProvider } from "./context/AuthContext";
+import { AuthProvider } from "./Context/AuthContext";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -23,7 +23,7 @@ import HireFreelancer from "./pages/HireFreelancer";
 import MyHires from "./pages/MyHires";
 import MyProjects from "./pages/MyProjects";
 import Settings from "./pages/Settings";
-import { ThemeProvider } from "./context/ThemeContext";
+import { ThemeProvider } from "./Context/ThemeContext";
 import VerifyEmail from "./pages/VerifyEmail";
 import LandingPage from "./pages/LandingPage";
 

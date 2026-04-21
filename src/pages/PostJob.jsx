@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../Context/AuthContext";
 import { createJob } from "../services/jobService";
 import { uploadCompanyLogo } from "../services/cloudinaryService";
 import { getAllJobSeekers, notifyAllJobSeekers } from "../services/notificationService";

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../Context/AuthContext";
 import { db } from "../firebase/config";
 import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, deleteDoc, addDoc } from "firebase/firestore";
 import { uploadProfilePicture, uploadPortfolioImage } from "../services/cloudinaryService";

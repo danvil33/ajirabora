@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Footer, Value } from "../Components";
 import Header from "../Components/Header/Header";
 import { getJobs } from "../services/jobService";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../Context/AuthContext";
 import { getRecommendedJobs } from "../services/matchingService";
 import { 
   BiTimeFive, 

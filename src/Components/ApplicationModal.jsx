@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../Context/AuthContext";
 import { submitApplication, hasUserApplied } from "../services/applicationService";
 import { getUserProfile, isProfileComplete } from "../services/userService";
 import { useNavigate } from "react-router-dom";

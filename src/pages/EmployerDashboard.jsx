@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../Context/AuthContext";
 import { getEmployerJobs, deleteJob } from "../services/jobService";
 import { getApplicationsByJob } from "../services/applicationService";
 import Header from "../Components/Header/Header";

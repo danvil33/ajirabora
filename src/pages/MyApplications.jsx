@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../Context/AuthContext";
 import { getApplicationsByUser, withdrawApplication, confirmInterview } from "../services/applicationService";
 import Header from "../Components/Header/Header";
 import { 
