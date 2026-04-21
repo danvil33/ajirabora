@@ -1,0 +1,91 @@
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@200;300;400;500;600;700;800&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: "Poppins", sans-serif;
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+li {
+  position: relative;
+  list-style: none;
+  cursor: pointer;
+}
+
+li > a:hover::before {
+  content: "";
+  position: absolute;
+  bottom: -8px;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background: #2a68ff;
+}
+
+.valuecard {
+  background-image: url(./Assets/Images/ValueBG.jpg);
+  background-size: 200px;
+  background-repeat: repeat;
+}
+
+/* Dark mode styles */
+.dark .valuecard {
+  background-image: url(./Assets/Images/ValueBG-dark.jpg);
+}
+
+/* Scrollbar styles */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2a68ff;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #1a4fd0;
+}
+/* Add at the end of your index.css file */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+/* Logo styling */
+.header-logo {
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.05));
+  transition: filter 0.3s ease;
+}
+
+.header-logo:hover {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+/* Ensure logo is crisp on high DPI screens */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .header-logo {
+    image-rendering: crisp-edges;
+  }
+}
