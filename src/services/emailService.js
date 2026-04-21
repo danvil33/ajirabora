@@ -1,13 +1,21 @@
 import axios from 'axios';
 
-// Use environment variable for API key (safe for Vercel)
+// Use environment variables for both API key and sender email
 const BREVO_CONFIG = {
   API_KEY: import.meta.env.VITE_BREVO_API_KEY,
-  SENDER_EMAIL: 'dallen02a@gmail.com',
+  SENDER_EMAIL: import.meta.env.VITE_BREVO_EMAIL || 'dallen02a@gmail.com', // Fallback to your verified email
   SENDER_NAME: 'AjiraBora'
 };
 
 const LOGO_URL = 'https://i.imgur.com/AEM9UJR.png';
+
+// Debug logging (remove after fixing)
+console.log('=== BREVO EMAIL SERVICE INITIALIZED ===');
+console.log('API Key configured:', BREVO_CONFIG.API_KEY ? '✅ Yes' : '❌ NO');
+console.log('API Key preview:', BREVO_CONFIG.API_KEY ? `${BREVO_CONFIG.API_KEY.substring(0, 15)}...` : 'None');
+console.log('Sender Email configured:', BREVO_CONFIG.SENDER_EMAIL ? '✅ Yes' : '❌ NO');
+console.log('Sender Email:', BREVO_CONFIG.SENDER_EMAIL);
+console.log('========================================');
 
 const getAppUrl = () => {
   if (typeof window !== 'undefined') {
@@ -16,7 +24,26 @@ const getAppUrl = () => {
   return 'https://ajirabora.com';
 };
 
+// Helper function to validate config before sending
+const validateConfig = () => {
+  if (!BREVO_CONFIG.API_KEY) {
+    console.error('❌ Brevo API Key is missing! Add VITE_BREVO_API_KEY to Vercel environment variables.');
+    return false;
+  }
+  if (!BREVO_CONFIG.SENDER_EMAIL) {
+    console.error('❌ Brevo Sender Email is missing! Add VITE_BREVO_EMAIL to Vercel environment variables.');
+    return false;
+  }
+  return true;
+};
+
 export const sendVerificationEmail = async (userEmail, userName, verificationLink) => {
+  // Validate configuration first
+  if (!validateConfig()) {
+    console.warn('⚠️ Email not sent: Missing Brevo configuration');
+    return { success: false, error: 'Email service not configured' };
+  }
+
   try {
     const appUrl = getAppUrl();
     const currentYear = new Date().getFullYear();
@@ -89,15 +116,25 @@ export const sendVerificationEmail = async (userEmail, userName, verificationLin
       }
     );
     
+    console.log('✅ Verification email sent to:', userEmail);
     return { success: true, messageId: response.data.messageId };
     
   } catch (error) {
-    console.error('Email error:', error.response?.data || error.message);
-    return { success: false, error: error.response?.data?.message || error.message };
+    console.error('❌ Verification email error:', error.response?.data || error.message);
+    return { 
+      success: false, 
+      error: error.response?.data?.message || error.message,
+      status: error.response?.status 
+    };
   }
 };
 
 export const sendWelcomeEmail = async (userEmail, userName) => {
+  if (!validateConfig()) {
+    console.warn('⚠️ Welcome email not sent: Missing Brevo configuration');
+    return { success: false, error: 'Email service not configured' };
+  }
+
   try {
     const appUrl = getAppUrl();
     const currentYear = new Date().getFullYear();
@@ -164,14 +201,21 @@ export const sendWelcomeEmail = async (userEmail, userName) => {
       }
     );
     
+    console.log('✅ Welcome email sent to:', userEmail);
     return { success: true };
   } catch (error) {
-    return { success: false };
+    console.error('❌ Welcome email error:', error.response?.data || error.message);
+    return { success: false, error: error.response?.data?.message || error.message };
   }
 };
 
 // Send job alert to a job seeker
 export const sendNewJobAlertEmail = async (userEmail, userName, jobData) => {
+  if (!validateConfig()) {
+    console.warn('⚠️ Job alert not sent: Missing Brevo configuration');
+    return { success: false, error: 'Email service not configured' };
+  }
+
   try {
     const appUrl = getAppUrl();
     const currentYear = new Date().getFullYear();
@@ -273,17 +317,22 @@ export const sendNewJobAlertEmail = async (userEmail, userName, jobData) => {
       }
     );
     
-    console.log(`Job alert sent to ${userEmail}`);
-    return { success: true };
+    console.log(`✅ Job alert sent to ${userEmail}`);
+    return { success: true, messageId: response.data.messageId };
     
   } catch (error) {
-    console.error('Job alert email error:', error);
-    return { success: false };
+    console.error('❌ Job alert email error:', error.response?.data || error.message);
+    return { success: false, error: error.response?.data?.message || error.message };
   }
 };
 
 // Send batch job alerts to multiple job seekers
 export const sendBatchJobAlerts = async (jobSeekers, jobData) => {
+  if (!validateConfig()) {
+    console.warn('⚠️ Batch job alerts not sent: Missing Brevo configuration');
+    return { sent: 0, failed: jobSeekers.length, total: jobSeekers.length };
+  }
+
   const results = {
     sent: 0,
     failed: 0,
@@ -310,5 +359,17 @@ export const sendBatchJobAlerts = async (jobSeekers, jobData) => {
     }
   }
   
+  console.log(`📊 Batch job alerts complete: ${results.sent} sent, ${results.failed} failed`);
   return results;
+};
+
+// Export a test function to verify configuration
+export const testEmailConfig = () => {
+  const isValid = validateConfig();
+  console.log('=== EMAIL CONFIGURATION TEST ===');
+  console.log('Configuration valid:', isValid ? '✅ YES' : '❌ NO');
+  console.log('API Key exists:', !!BREVO_CONFIG.API_KEY);
+  console.log('Sender Email exists:', !!BREVO_CONFIG.SENDER_EMAIL);
+  console.log('================================');
+  return isValid;
 };
