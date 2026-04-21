@@ -5,7 +5,7 @@ import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { auth, db } from "../firebase/config";
 import { doc, setDoc } from "firebase/firestore";
 import { sendVerificationEmail } from "../services/emailService";
-import logo from "../assets/logo.png";
+import logo from "../Assets/logo.png";
 import { 
   FaUser, 
   FaEnvelope, 

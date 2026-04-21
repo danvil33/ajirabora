@@ -5,7 +5,7 @@ import {
   AiFillFacebook,
   AiFillTwitterCircle,
 } from "react-icons/ai";
-import logo from "../../assets/logo.png";
+import logo from "../../Assets/logo.png";
 
 const Footer = () => {
   return (

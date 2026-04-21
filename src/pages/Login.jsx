@@ -8,7 +8,7 @@ import { signInWithGoogle, linkGoogleAccount } from "../services/googleAuthServi
 import { signInWithGoogleNative, isNativePlatform } from "../services/nativeGoogleAuth";
 import { FaEnvelope, FaLock, FaEye, FaEyeSlash, FaCheckCircle, FaSpinner, FaExclamationTriangle, FaGoogle } from "react-icons/fa";
 import { FcGoogle } from "react-icons/fc";
-import logo from "../assets/logo.png";
+import logo from "../Assets/logo.png";
 
 const Login = () => {
   const [email, setEmail] = useState("");

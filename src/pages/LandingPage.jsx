@@ -3,10 +3,10 @@ import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../Context/AuthContext";
 import Footer from "../Components/Footer/Footer";
-import logo from "../assets/logo.png";
-import img1 from "../assets/img1.jpeg";
-import img2 from "../assets/img2.jpeg";
-import homeImg from "../assets/home.png";
+import logo from "../Assets/logo.png";
+import img1 from "../Assets/img1.jpeg";
+import img2 from "../Assets/img2.jpeg";
+import homeImg from "../Assets/home.png";
 import { 
   FaPhone, 
   FaEnvelope, 

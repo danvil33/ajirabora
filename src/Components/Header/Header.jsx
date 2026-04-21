@@ -19,7 +19,7 @@ import {
   HiClipboardList,
   HiBriefcase as HiBriefcaseIcon
 } from "react-icons/hi";
-import logo from "../../assets/logo.png";
+import logo from "../../Assets/logo.png";
 
 const Header = () => {
   const { user, userProfile, isEmployer, isJobSeeker } = useAuth();
