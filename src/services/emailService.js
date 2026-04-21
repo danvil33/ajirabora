@@ -1,66 +1,128 @@
 import axios from 'axios';
 
-// Use environment variables for both API key and sender email
+// Log everything at startup
+console.log('🚀 EMAIL SERVICE LOADING...');
+console.log('📋 All VITE environment variables:', Object.keys(import.meta.env).filter(key => key.startsWith('VITE')));
+
+// Try to get API key from multiple possible sources
+const getApiKey = () => {
+  // Try different possible variable names
+  const possibleKeys = [
+    import.meta.env.VITE_BREVO_API_KEY,
+    import.meta.env.VITE_BREVO_KEY,
+    import.meta.env.BREVO_API_KEY,
+    import.meta.env.VITE_API_KEY,
+    import.meta.env.VITE_BREVO_API_KEY?.trim()
+  ];
+  
+  for (const key of possibleKeys) {
+    if (key && key.startsWith('xkeysib')) {
+      console.log('✅ Found valid API key format');
+      return key;
+    }
+  }
+  
+  // Check if any key exists but has wrong format
+  const rawKey = import.meta.env.VITE_BREVO_API_KEY;
+  if (rawKey) {
+    console.log('⚠️ API key exists but format might be wrong');
+    console.log('Key starts with:', rawKey.substring(0, 10));
+    console.log('Key length:', rawKey.length);
+    return rawKey;
+  }
+  
+  console.log('❌ No API key found in environment variables');
+  return null;
+};
+
+// Try to get sender email from multiple sources
+const getSenderEmail = () => {
+  const possibleEmails = [
+    import.meta.env.VITE_BREVO_EMAIL,
+    import.meta.env.VITE_SENDER_EMAIL,
+    import.meta.env.BREVO_EMAIL,
+    'dallen02a@gmail.com' // Fallback
+  ];
+  
+  for (const email of possibleEmails) {
+    if (email && email.includes('@')) {
+      console.log('✅ Found sender email:', email);
+      return email;
+    }
+  }
+  
+  console.log('⚠️ Using fallback sender email: dallen02a@gmail.com');
+  return 'dallen02a@gmail.com';
+};
+
 const BREVO_CONFIG = {
-  API_KEY: import.meta.env.VITE_BREVO_API_KEY,
-  SENDER_EMAIL: import.meta.env.VITE_BREVO_EMAIL || 'dallen02a@gmail.com', // Fallback to your verified email
+  API_KEY: getApiKey(),
+  SENDER_EMAIL: getSenderEmail(),
   SENDER_NAME: 'AjiraBora'
 };
 
 const LOGO_URL = 'https://i.imgur.com/AEM9UJR.png';
 
-// Debug logging (remove after fixing)
-console.log('=== BREVO EMAIL SERVICE INITIALIZED ===');
-console.log('API Key configured:', BREVO_CONFIG.API_KEY ? '✅ Yes' : '❌ NO');
-console.log('API Key preview:', BREVO_CONFIG.API_KEY ? `${BREVO_CONFIG.API_KEY.substring(0, 15)}...` : 'None');
-console.log('Sender Email configured:', BREVO_CONFIG.SENDER_EMAIL ? '✅ Yes' : '❌ NO');
+// Final configuration check
+console.log('=== FINAL BREVO CONFIGURATION ===');
+console.log('API Key exists:', !!BREVO_CONFIG.API_KEY);
+console.log('API Key preview:', BREVO_CONFIG.API_KEY ? `${BREVO_CONFIG.API_KEY.substring(0, 15)}...` : 'MISSING');
+console.log('API Key length:', BREVO_CONFIG.API_KEY?.length || 0);
 console.log('Sender Email:', BREVO_CONFIG.SENDER_EMAIL);
-console.log('========================================');
+console.log('================================');
 
 const getAppUrl = () => {
   if (typeof window !== 'undefined') {
     return window.location.origin;
   }
-  return 'https://ajirabora.com';
+  return 'https://ajirabora.vercel.app';
 };
 
-// Helper function to validate config before sending
-const validateConfig = () => {
-  if (!BREVO_CONFIG.API_KEY) {
-    console.error('❌ Brevo API Key is missing! Add VITE_BREVO_API_KEY to Vercel environment variables.');
-    return false;
-  }
-  if (!BREVO_CONFIG.SENDER_EMAIL) {
-    console.error('❌ Brevo Sender Email is missing! Add VITE_BREVO_EMAIL to Vercel environment variables.');
-    return false;
-  }
-  return true;
+// Test function you can call from browser console
+window.testBrevoConfig = () => {
+  console.log('=== MANUAL CONFIG TEST ===');
+  console.log('VITE_BREVO_API_KEY:', import.meta.env.VITE_BREVO_API_KEY);
+  console.log('All VITE vars:', import.meta.env);
+  console.log('BREVO_CONFIG:', BREVO_CONFIG);
+  console.log('========================');
+  return BREVO_CONFIG;
 };
 
 export const sendVerificationEmail = async (userEmail, userName, verificationLink) => {
-  // Validate configuration first
-  if (!validateConfig()) {
-    console.warn('⚠️ Email not sent: Missing Brevo configuration');
-    return { success: false, error: 'Email service not configured' };
+  console.log('📧 sendVerificationEmail called');
+  console.log('Recipient:', userEmail);
+  console.log('Current config:', {
+    hasApiKey: !!BREVO_CONFIG.API_KEY,
+    senderEmail: BREVO_CONFIG.SENDER_EMAIL,
+    apiKeyPreview: BREVO_CONFIG.API_KEY ? BREVO_CONFIG.API_KEY.substring(0, 10) : null
+  });
+  
+  // Validate configuration
+  if (!BREVO_CONFIG.API_KEY) {
+    console.error('❌ CRITICAL: No API key found!');
+    console.error('Please add VITE_BREVO_API_KEY to Vercel environment variables');
+    return { 
+      success: false, 
+      error: 'Email service not configured - missing API key',
+      debug: { hasApiKey: false, hasSenderEmail: !!BREVO_CONFIG.SENDER_EMAIL }
+    };
   }
 
   try {
     const appUrl = getAppUrl();
     const currentYear = new Date().getFullYear();
     
-    const response = await axios.post(
-      'https://api.brevo.com/v3/smtp/email',
-      {
-        sender: {
-          name: BREVO_CONFIG.SENDER_NAME,
-          email: BREVO_CONFIG.SENDER_EMAIL
-        },
-        to: [{
-          email: userEmail,
-          name: userName
-        }],
-        subject: 'Verify Your Email Address - AjiraBora',
-        htmlContent: `<!DOCTYPE html>
+    const requestBody = {
+      sender: {
+        name: BREVO_CONFIG.SENDER_NAME,
+        email: BREVO_CONFIG.SENDER_EMAIL
+      },
+      to: [{
+        email: userEmail,
+        name: userName
+      }],
+      subject: 'Verify Your Email Address - AjiraBora',
+      htmlContent: `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
@@ -106,32 +168,57 @@ export const sendVerificationEmail = async (userEmail, userName, verificationLin
   </div>
 </body>
 </html>`
-      },
-      {
-        headers: {
-          'api-key': BREVO_CONFIG.API_KEY,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        }
-      }
+    };
+    
+    const requestHeaders = {
+      'api-key': BREVO_CONFIG.API_KEY,
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    };
+    
+    console.log('📤 Sending request to Brevo...');
+    console.log('Headers (api-key hidden):', { ...requestHeaders, 'api-key': '***HIDDEN***' });
+    
+    const response = await axios.post(
+      'https://api.brevo.com/v3/smtp/email',
+      requestBody,
+      { headers: requestHeaders }
     );
     
-    console.log('✅ Verification email sent to:', userEmail);
+    console.log('✅ Email sent successfully!');
+    console.log('Response:', response.data);
     return { success: true, messageId: response.data.messageId };
     
   } catch (error) {
-    console.error('❌ Verification email error:', error.response?.data || error.message);
+    console.error('❌ Email failed!');
+    console.error('Error status:', error.response?.status);
+    console.error('Error data:', error.response?.data);
+    console.error('Error message:', error.message);
+    
+    // Check for specific error types
+    if (error.response?.status === 401) {
+      console.error('🔑 AUTHENTICATION ERROR: Your API key is invalid or missing');
+      console.error('Current API key preview:', BREVO_CONFIG.API_KEY?.substring(0, 15));
+      console.error('API key length:', BREVO_CONFIG.API_KEY?.length);
+      console.error('Make sure your VITE_BREVO_API_KEY in Vercel starts with "xkeysib-"');
+    }
+    
     return { 
       success: false, 
       error: error.response?.data?.message || error.message,
-      status: error.response?.status 
+      status: error.response?.status,
+      debug: {
+        hasApiKey: !!BREVO_CONFIG.API_KEY,
+        apiKeyPreview: BREVO_CONFIG.API_KEY ? BREVO_CONFIG.API_KEY.substring(0, 15) : null,
+        senderEmail: BREVO_CONFIG.SENDER_EMAIL
+      }
     };
   }
 };
 
 export const sendWelcomeEmail = async (userEmail, userName) => {
-  if (!validateConfig()) {
-    console.warn('⚠️ Welcome email not sent: Missing Brevo configuration');
+  if (!BREVO_CONFIG.API_KEY) {
+    console.error('❌ Cannot send welcome email: No API key');
     return { success: false, error: 'Email service not configured' };
   }
 
@@ -209,10 +296,9 @@ export const sendWelcomeEmail = async (userEmail, userName) => {
   }
 };
 
-// Send job alert to a job seeker
 export const sendNewJobAlertEmail = async (userEmail, userName, jobData) => {
-  if (!validateConfig()) {
-    console.warn('⚠️ Job alert not sent: Missing Brevo configuration');
+  if (!BREVO_CONFIG.API_KEY) {
+    console.error('❌ Cannot send job alert: No API key');
     return { success: false, error: 'Email service not configured' };
   }
 
@@ -326,10 +412,9 @@ export const sendNewJobAlertEmail = async (userEmail, userName, jobData) => {
   }
 };
 
-// Send batch job alerts to multiple job seekers
 export const sendBatchJobAlerts = async (jobSeekers, jobData) => {
-  if (!validateConfig()) {
-    console.warn('⚠️ Batch job alerts not sent: Missing Brevo configuration');
+  if (!BREVO_CONFIG.API_KEY) {
+    console.error('❌ Cannot send batch alerts: No API key');
     return { sent: 0, failed: jobSeekers.length, total: jobSeekers.length };
   }
 
@@ -339,7 +424,6 @@ export const sendBatchJobAlerts = async (jobSeekers, jobData) => {
     total: jobSeekers.length
   };
   
-  // Send in batches of 5 to avoid rate limits
   const batchSize = 5;
   for (let i = 0; i < jobSeekers.length; i += batchSize) {
     const batch = jobSeekers.slice(i, i + batchSize);
@@ -353,23 +437,21 @@ export const sendBatchJobAlerts = async (jobSeekers, jobData) => {
       else results.failed++;
     });
     
-    // Delay between batches
     if (i + batchSize < jobSeekers.length) {
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
   }
   
-  console.log(`📊 Batch job alerts complete: ${results.sent} sent, ${results.failed} failed`);
+  console.log(`📊 Batch job alerts: ${results.sent} sent, ${results.failed} failed`);
   return results;
 };
 
-// Export a test function to verify configuration
+// Export test function
 export const testEmailConfig = () => {
-  const isValid = validateConfig();
-  console.log('=== EMAIL CONFIGURATION TEST ===');
-  console.log('Configuration valid:', isValid ? '✅ YES' : '❌ NO');
+  console.log('=== EMAIL CONFIG TEST ===');
   console.log('API Key exists:', !!BREVO_CONFIG.API_KEY);
-  console.log('Sender Email exists:', !!BREVO_CONFIG.SENDER_EMAIL);
-  console.log('================================');
-  return isValid;
+  console.log('API Key preview:', BREVO_CONFIG.API_KEY?.substring(0, 15));
+  console.log('Sender Email:', BREVO_CONFIG.SENDER_EMAIL);
+  console.log('========================');
+  return BREVO_CONFIG;
 };
