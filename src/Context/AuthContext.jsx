@@ -17,20 +17,31 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isEmailVerified, setIsEmailVerified] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setUser(user);
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      setUser(firebaseUser);
       
-      if (user) {
-        try {
-          const profile = await getUserProfile(user.uid);
-          setUserProfile(profile);
-        } catch (error) {
-          console.error("Error fetching user profile:", error);
+      if (firebaseUser) {
+        // Check email verification status
+        const emailVerified = firebaseUser.emailVerified;
+        setIsEmailVerified(emailVerified);
+        
+        // Only fetch profile if email is verified OR we need it for other purposes
+        if (emailVerified) {
+          try {
+            const profile = await getUserProfile(firebaseUser.uid);
+            setUserProfile(profile);
+          } catch (error) {
+            console.error("Error fetching user profile:", error);
+          }
+        } else {
+          setUserProfile(null);
         }
       } else {
         setUserProfile(null);
+        setIsEmailVerified(false);
       }
       
       setLoading(false);
@@ -55,6 +66,11 @@ export const AuthProvider = ({ children }) => {
     return userProfile?.role === "jobseeker";
   };
 
+  // Check if user can access protected routes (verified + has profile)
+  const canAccessApp = () => {
+    return user && user.emailVerified;
+  };
+
   // Get company info if employer
   const getCompanyInfo = () => {
     if (isEmployer()) {
@@ -72,9 +88,11 @@ export const AuthProvider = ({ children }) => {
   return (
     <AuthContext.Provider value={{ 
       user, 
-      setUser,  // <-- ADD THIS LINE - very important!
+      setUser,
       userProfile, 
-      loading, 
+      loading,
+      isEmailVerified,
+      canAccessApp,
       updateUserDisplayName,
       isEmployer,
       isJobSeeker,

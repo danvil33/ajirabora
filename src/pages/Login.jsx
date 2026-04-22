@@ -19,13 +19,37 @@ const Login = () => {
   const [success, setSuccess] = useState("");
   const [showLinkingOption, setShowLinkingOption] = useState(false);
   const [pendingGoogleEmail, setPendingGoogleEmail] = useState("");
+  const [resendMessage, setResendMessage] = useState("");
   const navigate = useNavigate();
   const { setUser } = useAuth();
+
+  // Function to resend verification email
+  const resendVerificationEmail = async () => {
+    setResendMessage("");
+    setError("");
+    
+    try {
+      // Sign in temporarily to get user object
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      
+      if (!user.emailVerified) {
+        await user.sendEmailVerification();
+        setResendMessage("Verification email resent! Please check your inbox.");
+        // Sign out until they verify
+        await auth.signOut();
+      }
+    } catch (err) {
+      console.error("Resend error:", err);
+      setError("Failed to resend verification email. Please try again.");
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setSuccess("");
+    setResendMessage("");
     setLoading(true);
     setShowLinkingOption(false);
 
@@ -34,19 +58,35 @@ const Login = () => {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
       
-      // 2. Check if email is verified in Firestore
-      const userDoc = await getDoc(doc(db, "users", user.uid));
-      const userData = userDoc.data();
-      
-      if (!userData?.emailVerified) {
-        // Email not verified - sign out and show error
+      // 2. Check if email is verified using Firebase Auth's emailVerified (NOT Firestore!)
+      if (!user.emailVerified) {
+        // Email not verified - sign out and show error with resend option
         await auth.signOut();
-        setError("Please verify your email before logging in. Check your inbox for the verification link.");
+        setError(`Please verify your email before logging in. Check your inbox at ${email} for the verification link.`);
         setLoading(false);
         return;
       }
       
-      // 3. Login successful
+      // 3. Check Firestore user document exists (create if missing for legacy users)
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      if (!userDoc.exists()) {
+        // Create user document if it doesn't exist (for legacy or edge cases)
+        await setDoc(doc(db, "users", user.uid), {
+          name: user.displayName || email.split('@')[0],
+          email: user.email,
+          role: "jobseeker",
+          emailVerified: true,
+          createdAt: new Date().toISOString()
+        });
+      } else {
+        // Update Firestore to match Firebase verification status
+        const userData = userDoc.data();
+        if (!userData.emailVerified) {
+          await setDoc(doc(db, "users", user.uid), { emailVerified: true }, { merge: true });
+        }
+      }
+      
+      // 4. Login successful
       setUser(user);
       setSuccess("Login successful! Redirecting...");
       
@@ -77,6 +117,7 @@ const Login = () => {
   const handleGoogleSignIn = async () => {
     setError("");
     setSuccess("");
+    setResendMessage("");
     setLoading(true);
     setShowLinkingOption(false);
     
@@ -91,6 +132,17 @@ const Login = () => {
       }
       
       if (result.success) {
+        // Check if Google user's email is verified (Google accounts are always verified)
+        const user = auth.currentUser;
+        if (user && !user.emailVerified) {
+          // This shouldn't happen with Google, but just in case
+          await user.sendEmailVerification();
+          await auth.signOut();
+          setError("Please verify your email. A verification link has been sent.");
+          setLoading(false);
+          return;
+        }
+        
         setSuccess("Login successful! Redirecting...");
         setTimeout(() => {
           navigate("/home");
@@ -120,6 +172,15 @@ const Login = () => {
       // First sign in with email/password
       const userCredential = await signInWithEmailAndPassword(auth, pendingGoogleEmail, password);
       const user = userCredential.user;
+      
+      // Check email verification
+      if (!user.emailVerified) {
+        await auth.signOut();
+        setError("Please verify your email before linking Google account.");
+        setLoading(false);
+        setShowLinkingOption(false);
+        return;
+      }
       
       // Then link Google account
       const linkResult = await linkGoogleAccount();
@@ -168,6 +229,15 @@ const Login = () => {
                 <FaExclamationTriangle className="text-sm mt-0.5 flex-shrink-0" />
                 <span>{error}</span>
               </div>
+              {/* Resend verification button */}
+              {error.includes("verify your email") && (
+                <button
+                  onClick={resendVerificationEmail}
+                  className="mt-2 text-sm text-[#FF8C00] dark:text-orange-400 hover:underline font-medium"
+                >
+                  Resend verification email →
+                </button>
+              )}
               {showLinkingOption && pendingGoogleEmail && (
                 <div className="mt-3 pt-3 border-t border-red-200 dark:border-red-800">
                   <p className="text-sm mb-2">Sign in with your password to link your Google account:</p>
@@ -197,6 +267,12 @@ const Login = () => {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+          
+          {resendMessage && (
+            <div className="mb-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-600 dark:text-green-400 px-4 py-3 rounded-lg text-sm flex items-center gap-2">
+              <FaCheckCircle /> {resendMessage}
             </div>
           )}
           

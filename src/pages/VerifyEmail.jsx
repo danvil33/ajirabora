@@ -1,180 +1,98 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { auth, db } from "../firebase/config";
-import { doc, getDoc, updateDoc, collection, query, where, getDocs } from "firebase/firestore";
-import { updateEmail } from "firebase/auth";
+import { auth } from "../firebase/config";
+import { applyActionCode } from "firebase/auth";
 import { FaCheckCircle, FaSpinner, FaExclamationTriangle, FaEnvelope } from "react-icons/fa";
 
 const VerifyEmail = () => {
   const navigate = useNavigate();
   const [verifying, setVerifying] = useState(true);
   const [result, setResult] = useState(null);
-  const [resending, setResending] = useState(false);
   const [email, setEmail] = useState("");
 
   useEffect(() => {
-    // Get verification code from URL
+    // Get parameters from URL (Firebase adds these automatically)
     const urlParams = new URLSearchParams(window.location.search);
-    const verificationCode = urlParams.get('code');
+    const mode = urlParams.get('mode');
+    const actionCode = urlParams.get('oobCode');
+    const continueUrl = urlParams.get('continueUrl');
+    const userEmail = urlParams.get('email');
     
-    if (verificationCode) {
-      verifyEmail(verificationCode);
+    console.log("VerifyEmail page loaded");
+    console.log("Mode:", mode);
+    console.log("Has oobCode:", !!actionCode);
+    
+    if (userEmail) setEmail(userEmail);
+    
+    // Only process email verification mode
+    if (mode === 'verifyEmail' && actionCode) {
+      verifyEmail(actionCode);
+    } else if (mode === 'recoverEmail') {
+      setVerifying(false);
+      setResult({
+        success: false,
+        message: "This link is for email recovery. Please use the password reset flow instead."
+      });
+    } else if (mode === 'resetPassword') {
+      setVerifying(false);
+      setResult({
+        success: false,
+        message: "This link is for password reset. Please use the forgot password page."
+      });
     } else {
       setVerifying(false);
-      setResult({ 
-        success: false, 
-        message: "No verification code found. Please check your email link." 
+      setResult({
+        success: false,
+        message: "Invalid verification link. Please check your email and click the correct link."
       });
     }
   }, []);
 
-  const verifyEmail = async (code) => {
+  const verifyEmail = async (actionCode) => {
     try {
-      // Find the verification document with this code
-      const verificationsRef = collection(db, 'emailVerifications');
-      const q = query(verificationsRef, where('code', '==', code));
-      const querySnapshot = await getDocs(q);
+      // Apply the verification code - Firebase handles everything!
+      await applyActionCode(auth, actionCode);
       
-      if (querySnapshot.empty) {
-        setVerifying(false);
-        setResult({ 
-          success: false, 
-          message: "Invalid verification link. Please request a new one." 
-        });
-        return;
-      }
-      
-      const verificationDoc = querySnapshot.docs[0];
-      const verificationData = verificationDoc.data();
-      const userId = verificationDoc.id;
-      
-      // Check if already verified
-      if (verificationData.verified) {
-        setVerifying(false);
-        setResult({ 
-          success: false, 
-          message: "Email already verified. You can login now." 
-        });
-        return;
-      }
-      
-      // Check if expired
-      if (Date.now() > verificationData.expiresAt) {
-        setVerifying(false);
-        setResult({ 
-          success: false, 
-          message: "Verification link has expired. Please request a new one." 
-        });
-        return;
-      }
-      
-      // Update verification status in emailVerifications collection
-      await updateDoc(doc(db, 'emailVerifications', userId), {
-        verified: true,
-        verifiedAt: new Date().toISOString()
-      });
-      
-      // Update user profile in users collection
-      const userRef = doc(db, 'users', userId);
-      const userDoc = await getDoc(userRef);
-      
-      if (userDoc.exists()) {
-        await updateDoc(userRef, {
-          emailVerified: true,
-          verifiedAt: new Date().toISOString()
-        });
-        setEmail(userDoc.data().email);
-      }
-      
-      // Try to update Firebase Auth user's emailVerified property
-      if (auth.currentUser && auth.currentUser.uid === userId) {
-        await auth.currentUser.reload();
+      // Get current user (if still signed in)
+      const user = auth.currentUser;
+      if (user) {
+        // Reload to get updated emailVerified status
+        await user.reload();
+        setEmail(user.email || "");
       }
       
       setVerifying(false);
-      setResult({ 
-        success: true, 
-        message: "Email verified successfully! You can now login." 
+      setResult({
+        success: true,
+        message: "Email verified successfully! You can now login to your account."
       });
+      
+      // Redirect to login after 3 seconds
+      setTimeout(() => {
+        navigate("/login");
+      }, 3000);
       
     } catch (error) {
       console.error("Verification error:", error);
+      
+      let errorMessage = "Failed to verify email. ";
+      
+      switch (error.code) {
+        case 'auth/invalid-action-code':
+          errorMessage += "The verification link is invalid or has already been used.";
+          break;
+        case 'auth/expired-action-code':
+          errorMessage += "The verification link has expired. Please request a new one.";
+          break;
+        default:
+          errorMessage += error.message || "Please try again.";
+      }
+      
       setVerifying(false);
-      setResult({ 
-        success: false, 
-        message: error.message || "Failed to verify email. Please try again." 
+      setResult({
+        success: false,
+        message: errorMessage
       });
-    }
-  };
-
-  const handleResendEmail = async () => {
-    // Get email from URL or prompt user
-    const urlParams = new URLSearchParams(window.location.search);
-    let userEmail = urlParams.get('email');
-    
-    if (!userEmail) {
-      userEmail = prompt("Please enter your email address to resend verification link:");
-    }
-    
-    if (!userEmail) return;
-    
-    setResending(true);
-    
-    try {
-      // Find user by email
-      const usersRef = collection(db, 'users');
-      const q = query(usersRef, where('email', '==', userEmail));
-      const querySnapshot = await getDocs(q);
-      
-      if (querySnapshot.empty) {
-        alert("No account found with this email address.");
-        setResending(false);
-        return;
-      }
-      
-      const userDoc = querySnapshot.docs[0];
-      const userId = userDoc.id;
-      const userData = userDoc.data();
-      
-      // Check if already verified
-      if (userData.emailVerified) {
-        alert("Email already verified! You can login.");
-        setResending(false);
-        return;
-      }
-      
-      // Generate new verification code
-      const newCode = `${userId}_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-      const newLink = `${window.location.origin}/verify-email?code=${newCode}`;
-      
-      // Update verification document
-      const verificationRef = doc(db, 'emailVerifications', userId);
-      await updateDoc(verificationRef, {
-        code: newCode,
-        expiresAt: Date.now() + 24 * 60 * 60 * 1000,
-        verified: false,
-        updatedAt: new Date().toISOString()
-      });
-      
-      // Import and send email
-      const { sendVerificationEmail } = await import('../services/emailService');
-      const emailResult = await sendVerificationEmail(
-        userEmail,
-        userData.name || "User",
-        newLink
-      );
-      
-      if (emailResult.success) {
-        alert(`Verification email resent to ${userEmail}. Please check your inbox.`);
-      } else {
-        alert("Failed to send email. Please try again.");
-      }
-      
-    } catch (error) {
-      console.error("Resend error:", error);
-      alert("Failed to resend verification email. Please try again.");
-    } finally {
-      setResending(false);
     }
   };
 
@@ -226,14 +144,15 @@ const VerifyEmail = () => {
             </p>
             
             <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
-              <button
-                onClick={handleResendEmail}
-                disabled={resending}
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                Didn't receive the email or link expired?
+              </p>
+              <Link 
+                to="/login" 
                 className="text-[#FF8C00] dark:text-orange-400 hover:underline flex items-center justify-center gap-2 w-full"
               >
-                {resending ? <FaSpinner className="animate-spin" /> : <FaEnvelope />}
-                {resending ? "Sending..." : "Resend Verification Email"}
-              </button>
+                <FaEnvelope /> Go to Login to Resend
+              </Link>
             </div>
             
             <Link 

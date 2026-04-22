@@ -1,10 +1,9 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../Context/AuthContext";
-import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification } from "firebase/auth";
 import { auth, db } from "../firebase/config";
 import { doc, setDoc } from "firebase/firestore";
-import { sendVerificationEmail } from "../services/emailService";
 import logo from "../Assets/logo.png";
 import { 
   FaUser, 
@@ -158,33 +157,21 @@ const Register = () => {
       
       await setDoc(doc(db, "users", user.uid), profileData);
       
-      // 4. Generate verification code
-      const verificationCode = `${user.uid}_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-      const verificationLink = `${window.location.origin}/verify-email?code=${verificationCode}`;
+      // 4. Send verification email using Firebase (NOT Brevo!)
+      await sendEmailVerification(user);
       
-      // 5. Store verification data in Firestore
+      // 5. Store verification pending status
       await setDoc(doc(db, "emailVerifications", user.uid), {
-        code: verificationCode,
         email: formData.email,
+        sentAt: new Date().toISOString(),
         expiresAt: Date.now() + 24 * 60 * 60 * 1000,
-        verified: false,
-        createdAt: new Date().toISOString()
+        verified: false
       });
       
-      // 6. Send verification email via Brevo SMTP
-      const emailResult = await sendVerificationEmail(
-        formData.email,
-        formData.name,
-        verificationLink
-      );
-      
-      if (emailResult.success) {
-        setVerificationEmail(formData.email);
-        setVerificationSent(true);
-        setUser(user);
-      } else {
-        setError("Account created but failed to send verification email. Please contact support.");
-      }
+      // Success - show verification screen
+      setVerificationEmail(formData.email);
+      setVerificationSent(true);
+      setUser(user);
       
     } catch (err) {
       console.error("Registration error:", err);
