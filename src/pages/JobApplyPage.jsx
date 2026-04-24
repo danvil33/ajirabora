@@ -28,7 +28,8 @@ import {
   BiBookOpen,
   BiBriefcaseAlt
 } from "react-icons/bi";
-import { FaWhatsapp, FaFilePdf, FaFileWord, FaFileAlt } from "react-icons/fa";
+import { FaWhatsapp, FaFilePdf, FaFileWord, FaFileAlt, FaExternalLinkAlt, FaLinkedin, FaGlobe } from "react-icons/fa";
+import { SiIndeed, SiLinkedin } from "react-icons/si";
 
 const JobApplyPage = () => {
   const { jobId } = useParams();
@@ -43,6 +44,7 @@ const JobApplyPage = () => {
   const [coverLetter, setCoverLetter] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [redirecting, setRedirecting] = useState(false);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -57,6 +59,17 @@ const JobApplyPage = () => {
         return;
       }
       setJob(jobData);
+      
+      // Check if job is external - redirect immediately
+      if (jobData.jobSource === "external" && jobData.externalUrl) {
+        setRedirecting(true);
+        // Redirect to external URL after 3 seconds
+        setTimeout(() => {
+          window.open(jobData.externalUrl, '_blank', 'noopener,noreferrer');
+          navigate("/jobs");
+        }, 3000);
+        return;
+      }
       
       if (user) {
         const applied = await hasUserApplied(user.uid, jobId);
@@ -119,12 +132,29 @@ const JobApplyPage = () => {
   };
 
   const shareOnWhatsApp = () => {
+    const applyUrl = job?.jobSource === "external" && job?.externalUrl 
+      ? job.externalUrl 
+      : `${window.location.origin}/job/${job?.id}/apply`;
+    
     const message = `🚨 *JOB ALERT: ${job?.title} at ${job?.company}*\n\n` +
                     `📍 *Location:* ${job?.location || 'Remote'}\n` +
                     `${job?.salary ? `💰 *Salary:* ${job?.salary}\n` : ''}\n` +
-                    `🔗 *Apply here:* ${window.location.origin}/job/${job?.id}/apply\n\n` +
+                    `🔗 *Apply here:* ${applyUrl}\n\n` +
                     `Share with someone looking for work! 🔁`;
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
+  };
+
+  const getSourceIcon = (source) => {
+    switch(source) {
+      case 'linkedin':
+        return <SiLinkedin className="text-[#0077B5] text-lg" />;
+      case 'indeed':
+        return <SiIndeed className="text-[#2164F4] text-lg" />;
+      case 'brightermonday':
+        return <FaGlobe className="text-green-600 text-lg" />;
+      default:
+        return <FaExternalLinkAlt className="text-purple-500 text-lg" />;
+    }
   };
 
   const getFileIcon = (url) => {
@@ -143,6 +173,44 @@ const JobApplyPage = () => {
       day: "numeric"
     });
   };
+
+  // Show redirecting screen for external jobs
+  if (redirecting) {
+    return (
+      <>
+        <Header />
+        <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 dark:bg-slate-900 pt-20">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-8 max-w-md text-center">
+            <div className="w-20 h-20 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+              <FaExternalLinkAlt className="text-3xl text-purple-600 dark:text-purple-400" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+              Redirecting to External Site
+            </h2>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">
+              This job is hosted on <strong>{job?.sourcePlatform || "another platform"}</strong>. You'll be redirected to apply.
+            </p>
+            <div className="animate-pulse">
+              <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+            </div>
+            <p className="text-sm text-gray-500 dark:text-gray-500 mt-4">
+              Redirecting you to {job?.externalUrl ? new URL(job.externalUrl).hostname : "external site"}...
+            </p>
+            <button
+              onClick={() => {
+                window.open(job?.externalUrl, '_blank', 'noopener,noreferrer');
+                navigate("/jobs");
+              }}
+              className="mt-6 text-[#FF8C00] dark:text-orange-400 hover:underline"
+            >
+              Click here if not redirected automatically
+            </button>
+          </div>
+        </div>
+        <Footer />
+      </>
+    );
+  }
 
   if (loading) {
     return (
@@ -168,6 +236,8 @@ const JobApplyPage = () => {
       </>
     );
   }
+
+  const isExternal = job.jobSource === "external";
 
   return (
     <>
@@ -197,7 +267,15 @@ const JobApplyPage = () => {
                     )}
                   </div>
                   <div className="flex-1">
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{job.title}</h1>
+                    <div className="flex items-center gap-2 flex-wrap mb-2">
+                      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{job.title}</h1>
+                      {isExternal && (
+                        <span className="inline-flex items-center gap-1 text-xs px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 rounded-full">
+                          <FaExternalLinkAlt className="text-xs" />
+                          External
+                        </span>
+                      )}
+                    </div>
                     <p className="text-lg text-gray-700 dark:text-gray-300 mb-2">{job.company}</p>
                     <div className="flex flex-wrap gap-2">
                       {job.type && (
@@ -208,6 +286,12 @@ const JobApplyPage = () => {
                       {job.level && (
                         <span className="inline-flex items-center gap-1 text-sm px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full">
                           <BiUser /> {job.level}
+                        </span>
+                      )}
+                      {isExternal && job.sourcePlatform && (
+                        <span className="inline-flex items-center gap-1 text-sm px-3 py-1 bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-400 rounded-full">
+                          {getSourceIcon(job.sourcePlatform)}
+                          Apply via {job.sourcePlatform.charAt(0).toUpperCase() + job.sourcePlatform.slice(1)}
                         </span>
                       )}
                     </div>
@@ -226,22 +310,20 @@ const JobApplyPage = () => {
                 </p>
               </div>
 
-              {/* Requirements */}
-              <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 p-6">
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                  <BiBook className="text-[#FF8C00] dark:text-orange-400" />
-                  Requirements & Qualifications
-                </h2>
-                {job.requirements ? (
+              {/* Requirements - Only for internal jobs */}
+              {!isExternal && job.requirements && (
+                <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 p-6">
+                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                    <BiBook className="text-[#FF8C00] dark:text-orange-400" />
+                    Requirements & Qualifications
+                  </h2>
                   <div className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">
                     {job.requirements.split('\n').map((line, idx) => (
                       <p key={idx} className="mb-2">{line}</p>
                     ))}
                   </div>
-                ) : (
-                  <p className="text-gray-500 dark:text-gray-400">No specific requirements listed</p>
-                )}
-              </div>
+                </div>
+              )}
 
               {/* Job Info */}
               <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 p-6">
@@ -294,9 +376,32 @@ const JobApplyPage = () => {
                   </button>
                 </div>
 
-                {/* Application Form */}
+                {/* Application Section - Different for External Jobs */}
                 <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 p-6">
-                  {alreadyApplied ? (
+                  {isExternal ? (
+                    <div className="text-center py-6">
+                      <div className="w-16 h-16 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <FaExternalLinkAlt className="text-2xl text-purple-600 dark:text-purple-400" />
+                      </div>
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">External Application</h3>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                        This job is hosted on <strong>{job.sourcePlatform || "another platform"}</strong>. 
+                        You'll need to apply on their website.
+                      </p>
+                      <a
+                        href={job.externalUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full flex items-center justify-center gap-2 bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 transition-colors"
+                      >
+                        <FaExternalLinkAlt />
+                        Apply on {job.sourcePlatform ? job.sourcePlatform.charAt(0).toUpperCase() + job.sourcePlatform.slice(1) : "External Site"}
+                      </a>
+                      <p className="text-xs text-gray-500 dark:text-gray-500 mt-3">
+                        You'll be redirected to {job.externalUrl ? new URL(job.externalUrl).hostname : "the external site"} to complete your application.
+                      </p>
+                    </div>
+                  ) : alreadyApplied ? (
                     <div className="text-center py-6">
                       <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
                         <BiCheckCircle className="text-3xl text-green-600 dark:text-green-400" />

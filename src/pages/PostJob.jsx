@@ -15,7 +15,10 @@ import {
   FaMoneyBill,
   FaEnvelope,
   FaBell,
-  FaInfoCircle
+  FaInfoCircle,
+  FaExternalLinkAlt,
+  FaLink,
+  FaGlobe
 } from "react-icons/fa";
 
 const PostJob = () => {
@@ -28,6 +31,11 @@ const PostJob = () => {
   const [notificationStatus, setNotificationStatus] = useState("");
   const [logoPreview, setLogoPreview] = useState(null);
   const [logoUrl, setLogoUrl] = useState("");
+  
+  // NEW: Job type selection
+  const [jobSource, setJobSource] = useState("internal"); // "internal" or "external"
+  const [externalUrl, setExternalUrl] = useState("");
+  const [sourcePlatform, setSourcePlatform] = useState("other");
   
   const [formData, setFormData] = useState({
     title: "",
@@ -111,46 +119,89 @@ const PostJob = () => {
     setNotificationStatus("");
     setLoading(true);
 
-    if (!formData.title || !formData.company || !formData.location || !formData.description || !formData.requirements) {
-      setError("Please fill in all required fields");
+    // Validation based on job type
+    if (!formData.title || !formData.company || !formData.location) {
+      setError("Please fill in all required fields (Title, Company, Location)");
       setLoading(false);
       return;
     }
 
+    // External job validation
+    if (jobSource === "external") {
+      if (!externalUrl) {
+        setError("Please provide the external application URL");
+        setLoading(false);
+        return;
+      }
+      if (!externalUrl.startsWith("http")) {
+        setError("Please enter a valid URL starting with http:// or https://");
+        setLoading(false);
+        return;
+      }
+    }
+
+    // Internal job validation
+    if (jobSource === "internal") {
+      if (!formData.description || !formData.requirements) {
+        setError("Please fill in job description and requirements");
+        setLoading(false);
+        return;
+      }
+    }
+
     try {
-      // Convert requirements text to skills array for AI matching
-      const requiredSkillsArray = formData.requirements
-        .split(',')
-        .map(skill => skill.trim())
-        .filter(skill => skill !== "");
-      
+      // Convert requirements text to skills array for AI matching (only for internal jobs)
+      const requiredSkillsArray = jobSource === "internal" 
+        ? formData.requirements.split(',').map(skill => skill.trim()).filter(skill => skill !== "")
+        : [];
+
       const jobData = {
-        ...formData,
+        title: formData.title,
+        company: formData.company,
+        location: formData.location,
+        type: formData.type,
+        level: formData.level,
+        salary: formData.salary,
+        description: jobSource === "internal" ? formData.description : `📢 External Opportunity from ${sourcePlatform}\n\n${formData.description || "Click the button below to apply on the external site."}`,
+        requirements: jobSource === "internal" ? formData.requirements : "",
+        contactEmail: formData.contactEmail,
         logo: logoUrl || null,
         postedBy: user.uid,
         postedByEmail: user.email,
         postedAt: new Date().toISOString(),
         status: "active",
-        requiredSkills: requiredSkillsArray  // ← CRITICAL for AI matching
+        
+        // NEW fields for external jobs
+        jobSource: jobSource,  // "internal" or "external"
+        externalUrl: jobSource === "external" ? externalUrl : null,
+        sourcePlatform: jobSource === "external" ? sourcePlatform : null,
+        directApply: jobSource === "internal",
+        
+        // Only include requiredSkills for internal jobs
+        ...(jobSource === "internal" && { requiredSkills: requiredSkillsArray })
       };
       
       // Create the job
       const createdJob = await createJob(jobData);
       
-      // Send notifications to all job seekers
-      setNotificationStatus("Sending job alerts to job seekers...");
-      
-      const jobWithId = { id: createdJob.id, ...jobData };
-      const jobSeekers = await getAllJobSeekers();
-      
-      if (jobSeekers.length > 0) {
-        const result = await notifyAllJobSeekers(jobWithId);
-        setNotificationStatus(`✅ Job alerts sent to ${result.sent} job seekers`);
+      // Send notifications ONLY for internal jobs (external jobs don't need notifications)
+      if (jobSource === "internal") {
+        setNotificationStatus("Sending job alerts to job seekers...");
+        
+        const jobWithId = { id: createdJob.id, ...jobData };
+        const jobSeekers = await getAllJobSeekers();
+        
+        if (jobSeekers.length > 0) {
+          const result = await notifyAllJobSeekers(jobWithId);
+          setNotificationStatus(`✅ Job alerts sent to ${result.sent} job seekers`);
+        } else {
+          setNotificationStatus("No job seekers found to notify");
+        }
       } else {
-        setNotificationStatus("No job seekers found to notify");
+        setNotificationStatus(`✅ External job listed successfully! Candidates will apply via ${sourcePlatform}`);
       }
       
-      setSuccess("Job posted successfully!");
+      setSuccess(jobSource === "internal" ? "Job posted successfully!" : "External job listed successfully!");
       
       // Reset form
       setFormData({
@@ -167,6 +218,9 @@ const PostJob = () => {
       });
       setLogoPreview(null);
       setLogoUrl("");
+      setJobSource("internal");
+      setExternalUrl("");
+      setSourcePlatform("other");
       
       // Redirect after 3 seconds
       setTimeout(() => {
@@ -276,6 +330,105 @@ const PostJob = () => {
                   </div>
                 </div>
 
+                {/* NEW: Job Type Selection */}
+                <div className="border-b border-gray-200 dark:border-slate-600 pb-6">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                    Job Type *
+                  </label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <button
+                      type="button"
+                      onClick={() => setJobSource("internal")}
+                      className={`p-4 rounded-xl border-2 transition-all text-left ${
+                        jobSource === "internal"
+                          ? "border-[#FF8C00] bg-orange-50 dark:bg-orange-950/20"
+                          : "border-gray-200 dark:border-slate-600 hover:border-[#FF8C00]"
+                      }`}
+                    >
+                      <FaBriefcase className={`text-xl mb-2 ${jobSource === "internal" ? "text-[#FF8C00]" : "text-gray-400"}`} />
+                      <h3 className="font-semibold text-gray-900 dark:text-white">Direct Apply on AjiraBora</h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                        Candidates apply through your dashboard. You'll receive applications directly.
+                      </p>
+                    </button>
+                    
+                    <button
+                      type="button"
+                      onClick={() => setJobSource("external")}
+                      className={`p-4 rounded-xl border-2 transition-all text-left ${
+                        jobSource === "external"
+                          ? "border-[#FF8C00] bg-orange-50 dark:bg-orange-950/20"
+                          : "border-gray-200 dark:border-slate-600 hover:border-[#FF8C00]"
+                      }`}
+                    >
+                      <FaExternalLinkAlt className={`text-xl mb-2 ${jobSource === "external" ? "text-[#FF8C00]" : "text-gray-400"}`} />
+                      <h3 className="font-semibold text-gray-900 dark:text-white">External Application Link</h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                        Candidates apply on external site (LinkedIn, Indeed, company website, etc.)
+                      </p>
+                    </button>
+                  </div>
+                </div>
+
+                {/* External Job Fields */}
+                {jobSource === "external" && (
+                  <div className="bg-gray-50 dark:bg-slate-800 p-4 rounded-lg space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Application URL *
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <FaLink className="text-gray-400" />
+                        <input
+                          type="url"
+                          value={externalUrl}
+                          onChange={(e) => setExternalUrl(e.target.value)}
+                          placeholder="https://example.com/careers/job-123"
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF8C00] dark:bg-slate-600 dark:text-white"
+                          required={jobSource === "external"}
+                        />
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Candidates will be redirected to this URL to apply
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Source Platform
+                      </label>
+                      <select
+                        value={sourcePlatform}
+                        onChange={(e) => setSourcePlatform(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF8C00] dark:bg-slate-600 dark:text-white"
+                      >
+                        <option value="linkedin">Ajira-portal</option>
+                        <option value="linkedin">Niajiri</option>
+                        <option value="linkedin">LinkedIn</option>
+                        <option value="indeed">Indeed</option>
+                        <option value="brightermonday">BrighterMonday</option>
+                        <option value="company">Company Website</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Additional Info (Optional)
+                      </label>
+                      <textarea
+                        name="description"
+                        rows={3}
+                        value={formData.description}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF8C00] dark:bg-slate-600 dark:text-white"
+                        placeholder="Add any extra information about this external opportunity..."
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Common Fields (always visible) */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -370,47 +523,49 @@ const PostJob = () => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF8C00] dark:bg-slate-600 dark:text-white"
                       placeholder="e.g., TZS 1,500,000 - 2,000,000"
                     />
-                    <p className="text-xs text-gray-400 mt-1">
-                      Higher salary increases match score
-                    </p>
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Job Description *
-                  </label>
-                  <textarea
-                    name="description"
-                    required
-                    rows={4}
-                    value={formData.description}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF8C00] dark:bg-slate-600 dark:text-white"
-                    placeholder="Describe the role, responsibilities, and what makes it exciting..."
-                  />
-                </div>
+                {/* Internal Job Fields */}
+                {jobSource === "internal" && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Job Description *
+                      </label>
+                      <textarea
+                        name="description"
+                        required
+                        rows={4}
+                        value={formData.description}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF8C00] dark:bg-slate-600 dark:text-white"
+                        placeholder="Describe the role, responsibilities, and what makes it exciting..."
+                      />
+                    </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Requirements / Skills *
-                  </label>
-                  <textarea
-                    name="requirements"
-                    required
-                    rows={4}
-                    value={formData.requirements}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF8C00] dark:bg-slate-600 dark:text-white"
-                    placeholder="List required skills separated by commas (e.g., React, TypeScript, Node.js, MongoDB)"
-                  />
-                  <div className="flex items-start gap-2 mt-1">
-                    <FaInfoCircle className="text-xs text-gray-400 mt-0.5" />
-                    <p className="text-xs text-gray-400">
-                      Enter skills separated by commas. This helps our AI match qualified candidates.
-                    </p>
-                  </div>
-                </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Requirements / Skills *
+                      </label>
+                      <textarea
+                        name="requirements"
+                        required
+                        rows={4}
+                        value={formData.requirements}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF8C00] dark:bg-slate-600 dark:text-white"
+                        placeholder="List required skills separated by commas (e.g., React, TypeScript, Node.js, MongoDB)"
+                      />
+                      <div className="flex items-start gap-2 mt-1">
+                        <FaInfoCircle className="text-xs text-gray-400 mt-0.5" />
+                        <p className="text-xs text-gray-400">
+                          Enter skills separated by commas. This helps our AI match qualified candidates.
+                        </p>
+                      </div>
+                    </div>
+                  </>
+                )}
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -426,7 +581,9 @@ const PostJob = () => {
                     placeholder="Email for applications"
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    Applicants will use this email to contact you
+                    {jobSource === "internal" 
+                      ? "Applicants will use this email to contact you" 
+                      : "This email won't be shown publicly (for your reference only)"}
                   </p>
                 </div>
 
@@ -443,7 +600,7 @@ const PostJob = () => {
                     disabled={loading}
                     className="px-6 py-2 bg-[#1A2A4A] text-white rounded-md hover:bg-[#2a3d6e] disabled:opacity-50 transition-colors flex items-center gap-2"
                   >
-                    {loading ? <><FaSpinner className="animate-spin" /> Posting...</> : "Post Job"}
+                    {loading ? <><FaSpinner className="animate-spin" /> {jobSource === "external" ? "Listing..." : "Posting..."}</> : jobSource === "external" ? "List External Job" : "Post Job"}
                   </button>
                 </div>
               </form>

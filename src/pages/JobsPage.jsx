@@ -14,9 +14,11 @@ import {
   BiSearch,
   BiFilter,
   BiX,
-  BiFile
+  BiFile,
+  BiLinkExternal
 } from "react-icons/bi";
-import { FaWhatsapp, FaArrowRight } from "react-icons/fa";
+import { FaWhatsapp, FaArrowRight, FaExternalLinkAlt, FaLinkedin, FaGlobe } from "react-icons/fa";
+import { SiIndeed, SiLinkedin } from "react-icons/si";
 
 const JobsPage = () => {
   const { user } = useAuth();
@@ -29,6 +31,7 @@ const JobsPage = () => {
   const [sortBy, setSortBy] = useState("Relevance");
   const [selectedType, setSelectedType] = useState("");
   const [selectedLevel, setSelectedLevel] = useState("");
+  const [selectedSource, setSelectedSource] = useState(""); // NEW: filter by job source
   const [showFilters, setShowFilters] = useState(false);
   const [filteredJobs, setFilteredJobs] = useState([]);
 
@@ -38,7 +41,7 @@ const JobsPage = () => {
 
   useEffect(() => {
     filterAndSortJobs();
-  }, [jobs, searchTerm, companyTerm, locationTerm, sortBy, selectedType, selectedLevel]);
+  }, [jobs, searchTerm, companyTerm, locationTerm, sortBy, selectedType, selectedLevel, selectedSource]);
 
   const fetchJobs = async () => {
     try {
@@ -80,6 +83,15 @@ const JobsPage = () => {
       filtered = filtered.filter((job) => job.level === selectedLevel);
     }
 
+    // NEW: Filter by job source (internal/external)
+    if (selectedSource) {
+      if (selectedSource === "internal") {
+        filtered = filtered.filter((job) => job.jobSource === "internal" || !job.jobSource);
+      } else if (selectedSource === "external") {
+        filtered = filtered.filter((job) => job.jobSource === "external");
+      }
+    }
+
     if (sortBy === "Relevance") {
       // Keep original order
     } else if (sortBy === "Inclusive") {
@@ -98,6 +110,7 @@ const JobsPage = () => {
     setSortBy("Relevance");
     setSelectedType("");
     setSelectedLevel("");
+    setSelectedSource("");
   };
 
   const handleApplyClick = (job) => {
@@ -105,18 +118,28 @@ const JobsPage = () => {
       navigate("/login");
       return;
     }
-    navigate(`/job/${job.id}/apply`);
+    
+    // NEW: For external jobs, open external URL directly
+    if (job.jobSource === "external" && job.externalUrl) {
+      window.open(job.externalUrl, '_blank', 'noopener,noreferrer');
+    } else {
+      navigate(`/job/${job.id}/apply`);
+    }
   };
 
   const shareOnWhatsApp = (job) => {
+    const applyUrl = job.jobSource === "external" && job.externalUrl 
+      ? job.externalUrl 
+      : `${window.location.origin}/job/${job.id}/apply`;
+    
     const message = `🚨 *JOB ALERT: ${job.title} at ${job.company}*\n\n` +
                     `📍 *Location:* ${job.location || 'Remote'}\n` +
                     `${job.salary ? `💰 *Salary:* ${job.salary}\n` : ''}` +
                     `📋 *Type:* ${job.type || 'Fulltime'}\n` +
-                    `📊 *Level:* ${job.level || 'Not specified'}\n\n` +
-                    `📝 *Description:* ${job.description?.substring(0, 150)}...\n` +
-                    `📋 *Requirements:* ${job.requirements?.substring(0, 150)}...\n\n` +
-                    `🔗 *Apply here:* ${window.location.origin}/job/${job.id}/apply\n\n` +
+                    `📊 *Level:* ${job.level || 'Not specified'}\n` +
+                    `${job.jobSource === "external" ? `🌐 *Source:* ${job.sourcePlatform || 'External'}\n` : ''}\n` +
+                    `📝 *Description:* ${job.description?.substring(0, 150)}...\n\n` +
+                    `🔗 *Apply here:* ${applyUrl}\n\n` +
                     `Share with someone looking for work! 🔁`;
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
   };
@@ -129,7 +152,20 @@ const JobsPage = () => {
     return `${Math.floor(diffHours / 24)}d ago`;
   };
 
-  const hasActiveFilters = searchTerm || companyTerm || locationTerm || selectedType || selectedLevel || sortBy !== "Relevance";
+  const getSourceIcon = (source) => {
+    switch(source) {
+      case 'linkedin':
+        return <SiLinkedin className="text-[#0077B5] text-xs" />;
+      case 'indeed':
+        return <SiIndeed className="text-[#2164F4] text-xs" />;
+      case 'brightermonday':
+        return <FaGlobe className="text-green-600 text-xs" />;
+      default:
+        return <FaExternalLinkAlt className="text-purple-500 text-xs" />;
+    }
+  };
+
+  const hasActiveFilters = searchTerm || companyTerm || locationTerm || selectedType || selectedLevel || selectedSource || sortBy !== "Relevance";
 
   return (
     <>
@@ -177,7 +213,7 @@ const JobsPage = () => {
           {/* Advanced Filters */}
           <div className={`${showFilters ? 'block' : 'hidden'} md:block mb-6`}>
             <div className="bg-white dark:bg-slate-700 rounded-xl p-4 shadow-sm">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Company
@@ -238,6 +274,22 @@ const JobsPage = () => {
                     <option value="Intermediate">Intermediate</option>
                     <option value="Experienced">Experienced</option>
                     <option value="Professional">Professional</option>
+                  </select>
+                </div>
+
+                {/* NEW: Source Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Job Source
+                  </label>
+                  <select
+                    value={selectedSource}
+                    onChange={(e) => setSelectedSource(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF8C00] dark:bg-slate-600 dark:text-white"
+                  >
+                    <option value="">All Jobs</option>
+                    <option value="internal">Direct Apply (AjiraBora)</option>
+                    <option value="external">External (Other Platforms)</option>
                   </select>
                 </div>
               </div>
@@ -313,113 +365,147 @@ const JobsPage = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredJobs.map(job => (
-                <div key={job.id} className="bg-white dark:bg-slate-800 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden border border-gray-100 dark:border-slate-700 group">
-                  <div className="p-4">
-                    {/* Header with Logo and Title */}
-                    <div className="flex items-start gap-3 mb-3">
-                      {job.logo ? (
-                        <img
-                          src={job.logo}
-                          alt={job.company}
-                          className="w-12 h-12 object-contain rounded-lg border p-1 bg-white"
-                        />
-                      ) : (
-                        <div className="w-12 h-12 bg-gradient-to-br from-orange-100 to-orange-200 dark:from-orange-900/30 dark:to-orange-800/30 rounded-lg flex items-center justify-center">
-                          <BiBuilding className="text-[#FF8C00] text-xl" />
+              {filteredJobs.map(job => {
+                const isExternal = job.jobSource === "external";
+                
+                return (
+                  <div key={job.id} className="bg-white dark:bg-slate-800 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden border border-gray-100 dark:border-slate-700 group">
+                    <div className="p-4">
+                      {/* Header with Logo and Title */}
+                      <div className="flex items-start gap-3 mb-3">
+                        {job.logo ? (
+                          <img
+                            src={job.logo}
+                            alt={job.company}
+                            className="w-12 h-12 object-contain rounded-lg border p-1 bg-white"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 bg-gradient-to-br from-orange-100 to-orange-200 dark:from-orange-900/30 dark:to-orange-800/30 rounded-lg flex items-center justify-center">
+                            <BiBuilding className="text-[#FF8C00] text-xl" />
+                          </div>
+                        )}
+                        
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-gray-900 dark:text-white line-clamp-1 group-hover:text-[#FF8C00] transition-colors">
+                            {job.title}
+                          </h3>
+                          <p className="text-sm text-gray-600 dark:text-gray-400 font-medium flex items-center gap-1">
+                            <BiBuilding className="text-xs" />
+                            {job.company}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* External Job Badge */}
+                      {isExternal && (
+                        <div className="mb-2 flex items-center gap-2 flex-wrap">
+                          <span className="inline-flex items-center gap-1 text-xs px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 rounded-md">
+                            <FaExternalLinkAlt className="text-xs" />
+                            External
+                          </span>
+                          {job.sourcePlatform && (
+                            <span className="inline-flex items-center gap-1 text-xs px-2 py-1 bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-400 rounded-md">
+                              {getSourceIcon(job.sourcePlatform)}
+                              {job.sourcePlatform.charAt(0).toUpperCase() + job.sourcePlatform.slice(1)}
+                            </span>
+                          )}
                         </div>
                       )}
-                      
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-gray-900 dark:text-white line-clamp-1 group-hover:text-[#FF8C00] transition-colors">
-                          {job.title}
-                        </h3>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 font-medium flex items-center gap-1">
-                          <BiBuilding className="text-xs" />
-                          {job.company}
-                        </p>
-                      </div>
-                    </div>
 
-                    {/* Job Type Badge */}
-                    {job.type && (
-                      <div className="mb-2">
-                        <span className="inline-flex items-center gap-1 text-xs px-2 py-1 bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 rounded-md">
-                          <BiBriefcase className="text-xs" />
-                          {job.type}
-                        </span>
-                      </div>
-                    )}
+                      {/* Internal Job Badge */}
+                      {!isExternal && (
+                        <div className="mb-2">
+                          {job.type && (
+                            <span className="inline-flex items-center gap-1 text-xs px-2 py-1 bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 rounded-md">
+                              <BiBriefcase className="text-xs" />
+                              {job.type}
+                            </span>
+                          )}
+                        </div>
+                      )}
 
-                    {/* Description */}
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 line-clamp-2">
-                      {job.description || "No description provided"}
-                    </p>
+                      {/* Description */}
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 line-clamp-2">
+                        {job.description || "No description provided"}
+                      </p>
 
-                    {/* Requirements */}
-                    {job.requirements && (
-                      <div className="mb-2">
-                        <p className="text-xs text-gray-500 dark:text-gray-400 flex items-start gap-1">
-                          <BiFile className="text-xs mt-0.5 flex-shrink-0" />
-                          <span className="line-clamp-1">{job.requirements.substring(0, 80)}...</span>
-                        </p>
-                      </div>
-                    )}
+                      {/* Requirements (only for internal jobs) */}
+                      {!isExternal && job.requirements && (
+                        <div className="mb-2">
+                          <p className="text-xs text-gray-500 dark:text-gray-400 flex items-start gap-1">
+                            <BiFile className="text-xs mt-0.5 flex-shrink-0" />
+                            <span className="line-clamp-1">{job.requirements.substring(0, 80)}...</span>
+                          </p>
+                        </div>
+                      )}
 
-                    {/* Location and Time */}
-                    <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                      <div className="flex items-center gap-1">
-                        <BiMapPin className="text-gray-400 text-xs" />
-                        <p className="text-xs text-gray-600 dark:text-gray-400">
-                          {job.location || "Remote"}
-                        </p>
-                      </div>
-                      <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                        <BiTimeFive className="text-xs" />
-                        {formatTimePosted(job.postedAt)}
-                      </span>
-                    </div>
-
-                    {/* Salary */}
-                    {job.salary && (
-                      <div className="mb-2">
-                        <span className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
-                          <BiMoney className="text-xs" />
-                          {job.salary}
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Experience Level */}
-                    {job.level && (
-                      <div className="mb-3">
+                      {/* Location and Time */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                        <div className="flex items-center gap-1">
+                          <BiMapPin className="text-gray-400 text-xs" />
+                          <p className="text-xs text-gray-600 dark:text-gray-400">
+                            {job.location || "Remote"}
+                          </p>
+                        </div>
                         <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                          <BiUser className="text-xs" />
-                          {job.level}
+                          <BiTimeFive className="text-xs" />
+                          {formatTimePosted(job.postedAt)}
                         </span>
                       </div>
-                    )}
 
-                    {/* Action Buttons */}
-                    <div className="flex gap-2 mt-2">
-                      <button
-                        onClick={() => handleApplyClick(job)}
-                        className="flex-1 text-center bg-[#1A2A4A] text-white text-sm font-medium rounded-lg py-2 hover:bg-[#243b66] transition-colors"
-                      >
-                        Apply Now
-                      </button>
-                      
-                      <button
-                        onClick={() => shareOnWhatsApp(job)}
-                        className="px-3 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors flex items-center justify-center"
-                        title="Share on WhatsApp"
-                      >
-                        <FaWhatsapp className="text-lg" />
-                      </button>
+                      {/* Salary */}
+                      {job.salary && (
+                        <div className="mb-2">
+                          <span className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+                            <BiMoney className="text-xs" />
+                            {job.salary}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Experience Level */}
+                      {job.level && (
+                        <div className="mb-3">
+                          <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                            <BiUser className="text-xs" />
+                            {job.level}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Action Buttons - Different for External Jobs */}
+                      <div className="flex gap-2 mt-2">
+                        {isExternal ? (
+                          <a
+                            href={job.externalUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex-1 text-center bg-purple-600 text-white text-sm font-medium rounded-lg py-2 hover:bg-purple-700 transition-colors flex items-center justify-center gap-2"
+                          >
+                            <FaExternalLinkAlt className="text-xs" />
+                            Visit & Apply
+                          </a>
+                        ) : (
+                          <button
+                            onClick={() => handleApplyClick(job)}
+                            className="flex-1 text-center bg-[#1A2A4A] text-white text-sm font-medium rounded-lg py-2 hover:bg-[#243b66] transition-colors"
+                          >
+                            Apply Now
+                          </button>
+                        )}
+                        
+                        <button
+                          onClick={() => shareOnWhatsApp(job)}
+                          className="px-3 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors flex items-center justify-center"
+                          title="Share on WhatsApp"
+                        >
+                          <FaWhatsapp className="text-lg" />
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </main>
