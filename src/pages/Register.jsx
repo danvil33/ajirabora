@@ -55,7 +55,9 @@ const Register = () => {
   const [copied, setCopied] = useState(false);
   const [verifyingDNS, setVerifyingDNS] = useState(false);
   const [verificationStatus, setVerificationStatus] = useState(null);
-  const [userId, setUserId] = useState(null);
+  const [userId, setUserId] = useState(null); // ← ADDED this missing state
+  const [verificationSent, setVerificationSent] = useState(false); // ← ADDED
+  const [verificationEmail, setVerificationEmail] = useState(""); // ← ADDED
   
   const navigate = useNavigate();
   const { setUser } = useAuth();
@@ -116,11 +118,9 @@ const Register = () => {
         return false;
       }
       
-      // Extract domain from website
       const domain = formData.companyWebsite.replace(/^https?:\/\//, '').replace(/\/$/, '').toLowerCase();
-      
-      // For all employers, email must match company domain (custom email)
       const emailDomain = formData.email.split('@')[1].toLowerCase();
+      
       if (emailDomain !== domain) {
         setError(`Your email must match your company domain. Please use an email like admin@${domain}`);
         return false;
@@ -148,6 +148,11 @@ const Register = () => {
   };
 
   const verifyDNS = async () => {
+    if (!userId) {
+      setVerificationStatus({ type: 'error', message: 'User not found. Please try again.' });
+      return;
+    }
+    
     setVerifyingDNS(true);
     setVerificationStatus(null);
     
@@ -169,7 +174,6 @@ const Register = () => {
       if (data.success) {
         setVerificationStatus({ type: 'success', message: 'Domain verified successfully! Redirecting to login...' });
         
-        // Update Firestore
         const userRef = doc(db, "users", userId);
         await updateDoc(userRef, {
           isCompanyVerified: true,
@@ -177,7 +181,6 @@ const Register = () => {
           verifiedAt: new Date().toISOString()
         });
         
-        // Redirect to login after 2 seconds
         setTimeout(() => {
           navigate("/login");
         }, 2000);
@@ -220,7 +223,7 @@ const Register = () => {
       await updateProfile(user, { displayName: formData.name });
       
       // 3. Save user data to Firestore
-      const cleanDomain = formData.companyWebsite.replace(/^https?:\/\//, '').replace(/\/$/, '').toLowerCase();
+      const cleanDomain = formData.companyWebsite?.replace(/^https?:\/\//, '').replace(/\/$/, '').toLowerCase();
       
       const profileData = {
         name: formData.name,
@@ -281,16 +284,11 @@ const Register = () => {
     }
   };
 
-  // State for verification sent screen
-  const [verificationSent, setVerificationSent] = useState(false);
-  const [verificationEmail, setVerificationEmail] = useState("");
-
   // DNS Instructions Screen
   if (showDNSInstructions) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center py-12 px-4">
         <div className="max-w-2xl w-full bg-white dark:bg-slate-800 rounded-2xl shadow-xl overflow-hidden">
-          {/* Progress Header */}
           <div className="bg-gradient-to-r from-[#1A2A4A] to-[#2a3d6e] px-6 py-4">
             <div className="flex items-center justify-between">
               <div className="text-white">
@@ -316,7 +314,6 @@ const Register = () => {
               </p>
             </div>
 
-            {/* DNS Instructions Card */}
             <div className="bg-gray-50 dark:bg-slate-700/50 rounded-xl p-5 mb-6">
               <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
                 <FaExternalLinkAlt className="text-[#FF8C00] text-xs" />
@@ -351,7 +348,6 @@ const Register = () => {
               </button>
             </div>
 
-            {/* Info Box */}
             <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg mb-6">
               <p className="text-sm text-blue-800 dark:text-blue-300">
                 <strong>⏱️ Important:</strong> After adding the DNS record, DNS propagation can take 1-30 minutes. 
@@ -359,7 +355,6 @@ const Register = () => {
               </p>
             </div>
 
-            {/* Verification Status */}
             {verificationStatus && (
               <div className={`mb-4 p-3 rounded-lg text-sm ${
                 verificationStatus.type === 'success' 
@@ -370,7 +365,6 @@ const Register = () => {
               </div>
             )}
 
-            {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row gap-3">
               <button
                 onClick={verifyDNS}
