@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../Context/AuthContext";
-import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification } from "firebase/auth";
+import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification, signOut } from "firebase/auth";
 import { auth, db } from "../firebase/config";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, updateDoc } from "firebase/firestore";
 import logo from "../Assets/logo.png";
 import poster from "../Assets/poster.png";
 import { 
@@ -18,34 +18,44 @@ import {
   FaPhone,
   FaMapMarkerAlt,
   FaCheckCircle,
-  FaSpinner
+  FaSpinner,
+  FaShieldAlt,
+  FaMailBulk,
+  FaCopy,
+  FaCheck,
+  FaArrowRight,
+  FaSyncAlt,
+  FaExternalLinkAlt
 } from "react-icons/fa";
 
 const Register = () => {
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
-    // Account Info
     name: "",
     email: "",
     password: "",
     confirmPassword: "",
     role: "jobseeker",
     agreeTerms: false,
-    
-    // Employer-specific fields
     companyName: "",
     companyWebsite: "",
     companyPhone: "",
     companyAddress: "",
-    companyDescription: ""
+    companyDescription: "",
+    verificationMethod: "email"
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [verificationSent, setVerificationSent] = useState(false);
-  const [verificationEmail, setVerificationEmail] = useState("");
+  const [showDNSInstructions, setShowDNSInstructions] = useState(false);
+  const [dnsToken, setDnsToken] = useState("");
+  const [domainToVerify, setDomainToVerify] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [verifyingDNS, setVerifyingDNS] = useState(false);
+  const [verificationStatus, setVerificationStatus] = useState(null);
+  const [userId, setUserId] = useState(null);
   
   const navigate = useNavigate();
   const { setUser } = useAuth();
@@ -101,6 +111,20 @@ const Register = () => {
         setError("Company phone is required");
         return false;
       }
+      if (!formData.companyWebsite.trim()) {
+        setError("Company website is required for verification");
+        return false;
+      }
+      
+      // Extract domain from website
+      const domain = formData.companyWebsite.replace(/^https?:\/\//, '').replace(/\/$/, '').toLowerCase();
+      
+      // For all employers, email must match company domain (custom email)
+      const emailDomain = formData.email.split('@')[1].toLowerCase();
+      if (emailDomain !== domain) {
+        setError(`Your email must match your company domain. Please use an email like admin@${domain}`);
+        return false;
+      }
     }
     return true;
   };
@@ -115,6 +139,63 @@ const Register = () => {
   const handleBack = () => {
     setStep(1);
     setError("");
+  };
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const verifyDNS = async () => {
+    setVerifyingDNS(true);
+    setVerificationStatus(null);
+    
+    try {
+      const response = await fetch('/api/verify-domain', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          domain: domainToVerify,
+          token: dnsToken,
+          userId: userId
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setVerificationStatus({ type: 'success', message: 'Domain verified successfully! Redirecting to login...' });
+        
+        // Update Firestore
+        const userRef = doc(db, "users", userId);
+        await updateDoc(userRef, {
+          isCompanyVerified: true,
+          verificationStatus: "verified",
+          verifiedAt: new Date().toISOString()
+        });
+        
+        // Redirect to login after 2 seconds
+        setTimeout(() => {
+          navigate("/login");
+        }, 2000);
+      } else {
+        setVerificationStatus({ 
+          type: 'error', 
+          message: data.error || 'Verification failed. Make sure you added the TXT record correctly.' 
+        });
+      }
+    } catch (error) {
+      console.error("Verification error:", error);
+      setVerificationStatus({ 
+        type: 'error', 
+        message: 'Failed to verify domain. Please try again.' 
+      });
+    } finally {
+      setVerifyingDNS(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -133,11 +214,14 @@ const Register = () => {
       );
       
       const user = userCredential.user;
+      setUserId(user.uid);
       
       // 2. Update profile with name
       await updateProfile(user, { displayName: formData.name });
       
       // 3. Save user data to Firestore
+      const cleanDomain = formData.companyWebsite.replace(/^https?:\/\//, '').replace(/\/$/, '').toLowerCase();
+      
       const profileData = {
         name: formData.name,
         email: formData.email,
@@ -154,25 +238,34 @@ const Register = () => {
         profileData.companyPhone = formData.companyPhone;
         profileData.companyAddress = formData.companyAddress;
         profileData.companyDescription = formData.companyDescription;
+        profileData.verificationMethod = formData.verificationMethod;
+        profileData.isCompanyVerified = false;
+        profileData.verificationStatus = "pending";
+        profileData.companyDomain = cleanDomain;
+        
+        if (formData.verificationMethod === "dns") {
+          const token = `ajirabora-verify=${user.uid}_${Date.now()}`;
+          profileData.dnsVerificationToken = token;
+          setDnsToken(token);
+          setDomainToVerify(cleanDomain);
+        }
       }
       
       await setDoc(doc(db, "users", user.uid), profileData);
       
-      // 4. Send verification email using Firebase
-      await sendEmailVerification(user);
+      // 4. Sign out immediately (prevent auto-login)
+      await signOut(auth);
+      setUser(null);
       
-      // 5. Store verification pending status
-      await setDoc(doc(db, "emailVerifications", user.uid), {
-        email: formData.email,
-        sentAt: new Date().toISOString(),
-        expiresAt: Date.now() + 24 * 60 * 60 * 1000,
-        verified: false
-      });
-      
-      // Success - show verification screen
-      setVerificationEmail(formData.email);
-      setVerificationSent(true);
-      setUser(user);
+      // 5. Show appropriate verification screen
+      if (formData.role === "employer" && formData.verificationMethod === "dns") {
+        setShowDNSInstructions(true);
+      } else {
+        // For job seekers or email verification
+        await sendEmailVerification(user);
+        setVerificationEmail(formData.email);
+        setVerificationSent(true);
+      }
       
     } catch (err) {
       console.error("Registration error:", err);
@@ -188,7 +281,127 @@ const Register = () => {
     }
   };
 
-  // Show verification screen after registration
+  // State for verification sent screen
+  const [verificationSent, setVerificationSent] = useState(false);
+  const [verificationEmail, setVerificationEmail] = useState("");
+
+  // DNS Instructions Screen
+  if (showDNSInstructions) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center py-12 px-4">
+        <div className="max-w-2xl w-full bg-white dark:bg-slate-800 rounded-2xl shadow-xl overflow-hidden">
+          {/* Progress Header */}
+          <div className="bg-gradient-to-r from-[#1A2A4A] to-[#2a3d6e] px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div className="text-white">
+                <h2 className="text-lg font-semibold">Step 3 of 3</h2>
+                <p className="text-sm opacity-90">Verify Your Company Domain</p>
+              </div>
+              <div className="w-10 h-10 bg-[#FF8C00] rounded-full flex items-center justify-center">
+                <FaShieldAlt className="text-white" />
+              </div>
+            </div>
+          </div>
+
+          <div className="p-6">
+            <div className="text-center mb-6">
+              <div className="w-20 h-20 bg-[#FF8C00]/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <FaShieldAlt className="text-3xl text-[#FF8C00]" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                Verify Your Domain Ownership
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400 text-sm">
+                To prove you own <strong className="text-[#FF8C00]">{domainToVerify}</strong>, add this TXT record to your DNS settings
+              </p>
+            </div>
+
+            {/* DNS Instructions Card */}
+            <div className="bg-gray-50 dark:bg-slate-700/50 rounded-xl p-5 mb-6">
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                <FaExternalLinkAlt className="text-[#FF8C00] text-xs" />
+                Add this TXT record at your domain provider (Namecheap, GoDaddy, Cloudflare, etc.):
+              </p>
+              
+              <div className="bg-gray-900 text-white p-4 rounded-lg font-mono text-sm space-y-2">
+                <div className="flex flex-wrap gap-2">
+                  <span className="text-gray-400">Type:</span>
+                  <span className="text-[#FF8C00] font-bold">TXT</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <span className="text-gray-400">Name/Host:</span>
+                  <span className="text-white">@</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <span className="text-gray-400">Value:</span>
+                  <span className="text-green-400 break-all">{dnsToken}</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <span className="text-gray-400">TTL:</span>
+                  <span className="text-white">Automatic or 3600</span>
+                </div>
+              </div>
+              
+              <button
+                onClick={() => copyToClipboard(dnsToken)}
+                className="mt-3 flex items-center gap-2 text-sm text-[#FF8C00] hover:text-orange-600 transition"
+              >
+                {copied ? <FaCheck className="text-green-500" /> : <FaCopy />}
+                {copied ? "Copied!" : "Copy TXT Value"}
+              </button>
+            </div>
+
+            {/* Info Box */}
+            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg mb-6">
+              <p className="text-sm text-blue-800 dark:text-blue-300">
+                <strong>⏱️ Important:</strong> After adding the DNS record, DNS propagation can take 1-30 minutes. 
+                Make sure to save the record before verifying.
+              </p>
+            </div>
+
+            {/* Verification Status */}
+            {verificationStatus && (
+              <div className={`mb-4 p-3 rounded-lg text-sm ${
+                verificationStatus.type === 'success' 
+                  ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                  : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+              }`}>
+                {verificationStatus.message}
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={verifyDNS}
+                disabled={verifyingDNS}
+                className="flex-1 bg-gradient-to-r from-[#FF8C00] to-orange-500 text-white py-3 rounded-lg font-semibold hover:shadow-lg transition flex items-center justify-center gap-2"
+              >
+                {verifyingDNS ? (
+                  <><FaSpinner className="animate-spin" /> Verifying...</>
+                ) : (
+                  <><FaSyncAlt /> Verify DNS Record</>
+                )}
+              </button>
+              
+              <Link
+                to="/login"
+                className="flex-1 bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-gray-300 py-3 rounded-lg font-semibold text-center hover:bg-gray-300 dark:hover:bg-slate-600 transition"
+              >
+                Complete Later
+              </Link>
+            </div>
+            
+            <p className="text-center text-xs text-gray-500 mt-4">
+              You can also complete verification later from your company profile
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Email Verification Screen
   if (verificationSent) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center py-12 px-4">
@@ -211,7 +424,7 @@ const Register = () => {
           </p>
           <Link 
             to="/login" 
-            className="inline-block bg-[#1A2A4A] dark:bg-[#0f1a2e] text-white px-6 py-2 rounded-lg hover:bg-[#243b66] dark:hover:bg-[#1a2a4a] transition-colors"
+            className="inline-block bg-gradient-to-r from-[#FF8C00] to-orange-500 text-white px-6 py-2 rounded-lg font-semibold hover:shadow-lg transition"
           >
             Go to Login
           </Link>
@@ -225,14 +438,12 @@ const Register = () => {
       <div className="max-w-5xl w-full">
         <div className="flex flex-col md:flex-row rounded-2xl shadow-xl overflow-hidden">
           
-          {/* Left Side - Image Section (Hidden on mobile, visible on md+) */}
+          {/* Left Side - Image Section */}
           <div className="hidden md:flex md:w-1/2 bg-gradient-to-br from-[#1A2A4A] to-[#2a3d6e] relative overflow-hidden">
-            {/* Decorative circles */}
             <div className="absolute top-10 left-10 w-32 h-32 bg-[#FF8C00] rounded-full opacity-10 blur-2xl"></div>
             <div className="absolute bottom-10 right-10 w-40 h-40 bg-[#FF8C00] rounded-full opacity-10 blur-2xl"></div>
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-60 h-60 bg-white/5 rounded-full blur-3xl"></div>
             
-            {/* Image */}
             <div className="relative z-10 flex flex-col justify-center items-center p-8 w-full h-full">
               <img 
                 src={poster} 
@@ -240,7 +451,6 @@ const Register = () => {
                 className="w-full h-auto object-contain rounded-2xl max-h-[500px]"
               />
               
-              {/* Quote overlay */}
               <div className="mt-6 text-center">
                 <h3 className="text-white text-xl font-bold mb-2">Find Your Dream Job Today!</h3>
                 <p className="text-gray-300 text-sm">Connect with top employers across Tanzania</p>
@@ -260,7 +470,6 @@ const Register = () => {
 
           {/* Right Side - Form Section */}
           <div className="w-full md:w-1/2 bg-white dark:bg-slate-800 p-6 sm:p-8">
-            {/* Logo */}
             <div className="text-center mb-6">
               <img src={logo} alt="AjiraBora" className="h-16 mx-auto mb-3" />
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Create Account</h1>
@@ -279,19 +488,19 @@ const Register = () => {
                 <div className={`w-8 h-8 rounded-full mx-auto flex items-center justify-center ${step >= 2 ? 'bg-[#1A2A4A] dark:bg-[#0f1a2e] text-white' : 'bg-gray-200 dark:bg-slate-700 text-gray-500 dark:text-gray-400'}`}>
                   2
                 </div>
-                <span className="text-xs mt-1 block">Profile Details</span>
+                <span className="text-xs mt-1 block">Company Details</span>
+              </div>
+              <div className={`flex-1 text-center ${step >= 3 ? 'text-[#FF8C00] dark:text-orange-400' : 'text-gray-400 dark:text-gray-600'}`}>
+                <div className={`w-8 h-8 rounded-full mx-auto flex items-center justify-center ${step >= 3 ? 'bg-[#1A2A4A] dark:bg-[#0f1a2e] text-white' : 'bg-gray-200 dark:bg-slate-700 text-gray-500 dark:text-gray-400'}`}>
+                  3
+                </div>
+                <span className="text-xs mt-1 block">Verification</span>
               </div>
             </div>
 
             {error && (
               <div className="mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 px-4 py-3 rounded-lg text-sm">
                 {error}
-              </div>
-            )}
-            
-            {success && (
-              <div className="mb-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-600 dark:text-green-400 px-4 py-3 rounded-lg text-sm flex items-center gap-2">
-                <FaCheckCircle /> {success}
               </div>
             )}
 
@@ -312,6 +521,7 @@ const Register = () => {
                         onChange={handleChange}
                         className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF8C00] dark:focus:ring-orange-400"
                         placeholder="John Doe"
+                        required
                       />
                     </div>
                   </div>
@@ -329,8 +539,14 @@ const Register = () => {
                         onChange={handleChange}
                         className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF8C00] dark:focus:ring-orange-400"
                         placeholder="you@example.com"
+                        required
                       />
                     </div>
+                    {formData.role === "employer" && formData.companyWebsite && (
+                      <p className="text-xs text-amber-600 mt-1">
+                        ⚠️ Must match: @{formData.companyWebsite.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -343,13 +559,13 @@ const Register = () => {
                         onClick={() => setFormData({...formData, role: "jobseeker"})}
                         className={`p-3 rounded-lg border-2 transition-all ${
                           formData.role === "jobseeker"
-                            ? "border-[#FF8C00] dark:border-orange-400 bg-orange-50 dark:bg-orange-950/20"
-                            : "border-gray-200 dark:border-slate-700 hover:border-[#FF8C00] dark:hover:border-orange-400"
+                            ? "border-[#FF8C00] bg-orange-50 dark:bg-orange-950/20"
+                            : "border-gray-200 dark:border-slate-700 hover:border-[#FF8C00]"
                         }`}
                       >
-                        <FaUser className="text-xl mx-auto mb-1 text-[#FF8C00] dark:text-orange-400" />
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Job Seeker</span>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Looking for jobs</p>
+                        <FaUser className="text-xl mx-auto mb-1 text-[#FF8C00]" />
+                        <span className="text-sm font-medium">Job Seeker</span>
+                        <p className="text-xs text-gray-500 mt-1">Looking for jobs</p>
                       </button>
                       
                       <button
@@ -357,13 +573,13 @@ const Register = () => {
                         onClick={() => setFormData({...formData, role: "employer"})}
                         className={`p-3 rounded-lg border-2 transition-all ${
                           formData.role === "employer"
-                            ? "border-[#FF8C00] dark:border-orange-400 bg-orange-50 dark:bg-orange-950/20"
-                            : "border-gray-200 dark:border-slate-700 hover:border-[#FF8C00] dark:hover:border-orange-400"
+                            ? "border-[#FF8C00] bg-orange-50 dark:bg-orange-950/20"
+                            : "border-gray-200 dark:border-slate-700 hover:border-[#FF8C00]"
                         }`}
                       >
-                        <FaUserTie className="text-xl mx-auto mb-1 text-[#FF8C00] dark:text-orange-400" />
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Employer</span>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Hiring talent</p>
+                        <FaUserTie className="text-xl mx-auto mb-1 text-[#FF8C00]" />
+                        <span className="text-sm font-medium">Employer</span>
+                        <p className="text-xs text-gray-500 mt-1">Hiring talent</p>
                       </button>
                     </div>
                   </div>
@@ -381,11 +597,12 @@ const Register = () => {
                         onChange={handleChange}
                         className="w-full pl-10 pr-10 py-2 border border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF8C00] dark:focus:ring-orange-400"
                         placeholder="••••••••"
+                        required
                       />
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 hover:text-gray-600"
                       >
                         {showPassword ? <FaEyeSlash /> : <FaEye />}
                       </button>
@@ -405,33 +622,33 @@ const Register = () => {
                         onChange={handleChange}
                         className="w-full pl-10 pr-10 py-2 border border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF8C00] dark:focus:ring-orange-400"
                         placeholder="••••••••"
+                        required
                       />
                       <button
                         type="button"
                         onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 hover:text-gray-600"
                       >
                         {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
                       </button>
                     </div>
                   </div>
 
-                  {/* Terms and Conditions */}
                   <div className="flex items-start gap-3 pt-2">
                     <input
                       type="checkbox"
                       name="agreeTerms"
                       checked={formData.agreeTerms}
                       onChange={handleChange}
-                      className="mt-1 w-4 h-4 text-[#FF8C00] dark:text-orange-400 border-gray-300 dark:border-slate-600 rounded focus:ring-[#FF8C00] dark:focus:ring-orange-400"
+                      className="mt-1 w-4 h-4 text-[#FF8C00] border-gray-300 rounded focus:ring-[#FF8C00]"
                     />
                     <label className="text-sm text-gray-600 dark:text-gray-400">
                       I agree to the{" "}
-                      <Link to="/terms" className="text-[#FF8C00] dark:text-orange-400 hover:underline font-medium">
+                      <Link to="/terms" className="text-[#FF8C00] hover:underline">
                         Terms of Service
                       </Link>{" "}
                       and{" "}
-                      <Link to="/privacy" className="text-[#FF8C00] dark:text-orange-400 hover:underline font-medium">
+                      <Link to="/privacy" className="text-[#FF8C00] hover:underline">
                         Privacy Policy
                       </Link>
                     </label>
@@ -439,98 +656,161 @@ const Register = () => {
                 </div>
               )}
 
-              {/* Step 2: Profile Details */}
-              {step === 2 && (
+              {/* Step 2: Company Details */}
+              {step === 2 && formData.role === "employer" && (
                 <div className="space-y-4">
-                  {formData.role === "employer" ? (
-                    <>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Company Name *
-                        </label>
-                        <div className="relative">
-                          <FaBuilding className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
-                          <input
-                            type="text"
-                            name="companyName"
-                            value={formData.companyName}
-                            onChange={handleChange}
-                            className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF8C00] dark:focus:ring-orange-400"
-                            placeholder="Your company name"
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Company Phone *
-                        </label>
-                        <div className="relative">
-                          <FaPhone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
-                          <input
-                            type="tel"
-                            name="companyPhone"
-                            value={formData.companyPhone}
-                            onChange={handleChange}
-                            className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF8C00] dark:focus:ring-orange-400"
-                            placeholder="+255 123 456 789"
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Company Website
-                        </label>
-                        <input
-                          type="url"
-                          name="companyWebsite"
-                          value={formData.companyWebsite}
-                          onChange={handleChange}
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF8C00] dark:focus:ring-orange-400"
-                          placeholder="https://yourcompany.com"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Company Address
-                        </label>
-                        <div className="relative">
-                          <FaMapMarkerAlt className="absolute left-3 top-3 text-gray-400 dark:text-gray-500" />
-                          <textarea
-                            name="companyAddress"
-                            value={formData.companyAddress}
-                            onChange={handleChange}
-                            rows="2"
-                            className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF8C00] dark:focus:ring-orange-400"
-                            placeholder="Dar es Salaam, Tanzania"
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Company Description
-                        </label>
-                        <textarea
-                          name="companyDescription"
-                          value={formData.companyDescription}
-                          onChange={handleChange}
-                          rows="3"
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF8C00] dark:focus:ring-orange-400"
-                          placeholder="Tell us about your company..."
-                        />
-                      </div>
-                    </>
-                  ) : (
-                    <div className="text-center py-8">
-                      <FaUser className="text-5xl text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-                      <p className="text-gray-500 dark:text-gray-400">
-                        You're registering as a Job Seeker. You can complete your profile later.
-                      </p>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Company Name *
+                    </label>
+                    <div className="relative">
+                      <FaBuilding className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                      <input
+                        type="text"
+                        name="companyName"
+                        value={formData.companyName}
+                        onChange={handleChange}
+                        className="w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#FF8C00] dark:bg-slate-700"
+                        placeholder="Your company name"
+                        required
+                      />
                     </div>
-                  )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Company Phone *
+                    </label>
+                    <div className="relative">
+                      <FaPhone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                      <input
+                        type="tel"
+                        name="companyPhone"
+                        value={formData.companyPhone}
+                        onChange={handleChange}
+                        className="w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#FF8C00] dark:bg-slate-700"
+                        placeholder="+255 123 456 789"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Company Website *
+                    </label>
+                    <input
+                      type="url"
+                      name="companyWebsite"
+                      value={formData.companyWebsite}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#FF8C00] dark:bg-slate-700"
+                      placeholder="https://yourcompany.com"
+                      required
+                    />
+                    <p className="text-xs text-green-600 mt-1">
+                      ✓ Your email must match this domain
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Company Address
+                    </label>
+                    <div className="relative">
+                      <FaMapMarkerAlt className="absolute left-3 top-3 text-gray-400" />
+                      <textarea
+                        name="companyAddress"
+                        value={formData.companyAddress}
+                        onChange={handleChange}
+                        rows="2"
+                        className="w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#FF8C00] dark:bg-slate-700"
+                        placeholder="Dar es Salaam, Tanzania"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Company Description
+                    </label>
+                    <textarea
+                      name="companyDescription"
+                      value={formData.companyDescription}
+                      onChange={handleChange}
+                      rows="3"
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#FF8C00] dark:bg-slate-700"
+                      placeholder="Tell us about your company..."
+                    />
+                  </div>
+
+                  {/* Verification Method Selection */}
+                  <div className="border-t border-gray-200 dark:border-slate-600 pt-4 mt-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                      <FaShieldAlt className="inline mr-2 text-[#FF8C00]" />
+                      Verification Method *
+                    </label>
+                    
+                    <div className="grid grid-cols-1 gap-3">
+                      <label className={`flex items-start p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                        formData.verificationMethod === "email"
+                          ? "border-[#FF8C00] bg-orange-50 dark:bg-orange-950/20"
+                          : "border-gray-200 dark:border-slate-700 hover:border-gray-300"
+                      }`}>
+                        <input
+                          type="radio"
+                          name="verificationMethod"
+                          value="email"
+                          checked={formData.verificationMethod === "email"}
+                          onChange={handleChange}
+                          className="mt-1 mr-3 text-[#FF8C00] focus:ring-[#FF8C00]"
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <FaMailBulk className="text-[#FF8C00]" />
+                            <span className="font-medium">Email Verification (Recommended)</span>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1">
+                            We'll send a verification link to your company email. Takes 1 minute.
+                          </p>
+                        </div>
+                      </label>
+
+                      <label className={`flex items-start p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                        formData.verificationMethod === "dns"
+                          ? "border-[#FF8C00] bg-orange-50 dark:bg-orange-950/20"
+                          : "border-gray-200 dark:border-slate-700 hover:border-gray-300"
+                      }`}>
+                        <input
+                          type="radio"
+                          name="verificationMethod"
+                          value="dns"
+                          checked={formData.verificationMethod === "dns"}
+                          onChange={handleChange}
+                          className="mt-1 mr-3 text-[#FF8C00] focus:ring-[#FF8C00]"
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <FaShieldAlt className="text-[#FF8C00]" />
+                            <span className="font-medium">DNS Verification (Advanced)</span>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Add a TXT record to your DNS. Get a "Verified" badge on your profile.
+                          </p>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Job Seeker Step 2 */}
+              {step === 2 && formData.role !== "employer" && (
+                <div className="text-center py-8">
+                  <FaUser className="text-5xl text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500">
+                    You're registering as a Job Seeker. You can complete your profile later.
+                  </p>
                 </div>
               )}
 
@@ -540,7 +820,7 @@ const Register = () => {
                   <button
                     type="button"
                     onClick={handleBack}
-                    className="flex-1 px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition"
                   >
                     Back
                   </button>
@@ -550,26 +830,26 @@ const Register = () => {
                   <button
                     type="button"
                     onClick={handleNext}
-                    className="flex-1 bg-[#1A2A4A] dark:bg-[#0f1a2e] text-white py-2 rounded-lg hover:bg-[#243b66] dark:hover:bg-[#1a2a4a] transition-colors"
+                    className="flex-1 bg-[#1A2A4A] text-white py-2 rounded-lg hover:bg-[#243b66] transition flex items-center justify-center gap-2"
                   >
-                    Next
+                    Next <FaArrowRight className="text-xs" />
                   </button>
                 ) : (
                   <button
                     type="submit"
                     disabled={loading}
-                    className="flex-1 bg-[#1A2A4A] dark:bg-[#0f1a2e] text-white py-2 rounded-lg hover:bg-[#243b66] dark:hover:bg-[#1a2a4a] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                    className="flex-1 bg-gradient-to-r from-[#FF8C00] to-orange-500 text-white py-2 rounded-lg font-semibold hover:shadow-lg transition disabled:opacity-50 flex items-center justify-center gap-2"
                   >
-                    {loading ? <><FaSpinner className="animate-spin" /> Creating account...</> : "Create Account"}
+                    {loading ? <><FaSpinner className="animate-spin" /> Creating Account...</> : "Create Account"}
                   </button>
                 )}
               </div>
             </form>
 
             <div className="mt-6 text-center">
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+              <p className="text-sm text-gray-600">
                 Already have an account?{" "}
-                <Link to="/login" className="text-[#FF8C00] dark:text-orange-400 hover:text-orange-600 font-semibold">
+                <Link to="/login" className="text-[#FF8C00] font-semibold hover:underline">
                   Sign in
                 </Link>
               </p>
