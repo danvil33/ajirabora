@@ -5,6 +5,7 @@ import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification } 
 import { auth, db } from "../firebase/config";
 import { doc, setDoc } from "firebase/firestore";
 import logo from "../Assets/logo.png";
+import poster from "../Assets/poster.png";
 import { 
   FaUser, 
   FaEnvelope, 
@@ -157,7 +158,7 @@ const Register = () => {
       
       await setDoc(doc(db, "users", user.uid), profileData);
       
-      // 4. Send verification email using Firebase (NOT Brevo!)
+      // 4. Send verification email using Firebase
       await sendEmailVerification(user);
       
       // 5. Store verification pending status
@@ -221,321 +222,358 @@ const Register = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <img src={logo} alt="JobPortal" className="h-20 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Create Account</h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">Join AjiraBora to start your career journey</p>
-        </div>
-
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-6 sm:p-8">
-          {/* Step Indicator */}
-          <div className="flex justify-between mb-6">
-            <div className={`flex-1 text-center ${step >= 1 ? 'text-[#FF8C00] dark:text-orange-400' : 'text-gray-400 dark:text-gray-600'}`}>
-              <div className={`w-8 h-8 rounded-full mx-auto flex items-center justify-center ${step >= 1 ? 'bg-[#1A2A4A] dark:bg-[#0f1a2e] text-white' : 'bg-gray-200 dark:bg-slate-700 text-gray-500 dark:text-gray-400'}`}>
-                1
+      <div className="max-w-5xl w-full">
+        <div className="flex flex-col md:flex-row rounded-2xl shadow-xl overflow-hidden">
+          
+          {/* Left Side - Image Section (Hidden on mobile, visible on md+) */}
+          <div className="hidden md:flex md:w-1/2 bg-gradient-to-br from-[#1A2A4A] to-[#2a3d6e] relative overflow-hidden">
+            {/* Decorative circles */}
+            <div className="absolute top-10 left-10 w-32 h-32 bg-[#FF8C00] rounded-full opacity-10 blur-2xl"></div>
+            <div className="absolute bottom-10 right-10 w-40 h-40 bg-[#FF8C00] rounded-full opacity-10 blur-2xl"></div>
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-60 h-60 bg-white/5 rounded-full blur-3xl"></div>
+            
+            {/* Image */}
+            <div className="relative z-10 flex flex-col justify-center items-center p-8 w-full h-full">
+              <img 
+                src={poster} 
+                alt="AjiraBora - Find your dream job" 
+                className="w-full h-auto object-contain rounded-2xl max-h-[500px]"
+              />
+              
+              {/* Quote overlay */}
+              <div className="mt-6 text-center">
+                <h3 className="text-white text-xl font-bold mb-2">Find Your Dream Job Today!</h3>
+                <p className="text-gray-300 text-sm">Connect with top employers across Tanzania</p>
+                <div className="flex items-center justify-center gap-4 mt-4">
+                  <div className="flex items-center gap-1">
+                    <FaBriefcase className="text-[#FF8C00] text-xs" />
+                    <span className="text-white text-xs">1,000+ Jobs</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <FaUserTie className="text-[#FF8C00] text-xs" />
+                    <span className="text-white text-xs">500+ Employers</span>
+                  </div>
+                </div>
               </div>
-              <span className="text-xs mt-1 block">Account Info</span>
-            </div>
-            <div className={`flex-1 text-center ${step >= 2 ? 'text-[#FF8C00] dark:text-orange-400' : 'text-gray-400 dark:text-gray-600'}`}>
-              <div className={`w-8 h-8 rounded-full mx-auto flex items-center justify-center ${step >= 2 ? 'bg-[#1A2A4A] dark:bg-[#0f1a2e] text-white' : 'bg-gray-200 dark:bg-slate-700 text-gray-500 dark:text-gray-400'}`}>
-                2
-              </div>
-              <span className="text-xs mt-1 block">Profile Details</span>
             </div>
           </div>
 
-          {error && (
-            <div className="mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 px-4 py-3 rounded-lg text-sm">
-              {error}
+          {/* Right Side - Form Section */}
+          <div className="w-full md:w-1/2 bg-white dark:bg-slate-800 p-6 sm:p-8">
+            {/* Logo */}
+            <div className="text-center mb-6">
+              <img src={logo} alt="AjiraBora" className="h-16 mx-auto mb-3" />
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Create Account</h1>
+              <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">Join AjiraBora to start your career journey</p>
             </div>
-          )}
-          
-          {success && (
-            <div className="mb-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-600 dark:text-green-400 px-4 py-3 rounded-lg text-sm flex items-center gap-2">
-              <FaCheckCircle /> {success}
+
+            {/* Step Indicator */}
+            <div className="flex justify-between mb-6">
+              <div className={`flex-1 text-center ${step >= 1 ? 'text-[#FF8C00] dark:text-orange-400' : 'text-gray-400 dark:text-gray-600'}`}>
+                <div className={`w-8 h-8 rounded-full mx-auto flex items-center justify-center ${step >= 1 ? 'bg-[#1A2A4A] dark:bg-[#0f1a2e] text-white' : 'bg-gray-200 dark:bg-slate-700 text-gray-500 dark:text-gray-400'}`}>
+                  1
+                </div>
+                <span className="text-xs mt-1 block">Account Info</span>
+              </div>
+              <div className={`flex-1 text-center ${step >= 2 ? 'text-[#FF8C00] dark:text-orange-400' : 'text-gray-400 dark:text-gray-600'}`}>
+                <div className={`w-8 h-8 rounded-full mx-auto flex items-center justify-center ${step >= 2 ? 'bg-[#1A2A4A] dark:bg-[#0f1a2e] text-white' : 'bg-gray-200 dark:bg-slate-700 text-gray-500 dark:text-gray-400'}`}>
+                  2
+                </div>
+                <span className="text-xs mt-1 block">Profile Details</span>
+              </div>
             </div>
-          )}
 
-          <form onSubmit={handleSubmit}>
-            {/* Step 1: Account Info */}
-            {step === 1 && (
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Full Name
-                  </label>
-                  <div className="relative">
-                    <FaUser className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
-                    <input
-                      type="text"
-                      name="name"
-                      value={formData.name}
-                      onChange={handleChange}
-                      className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF8C00] dark:focus:ring-orange-400"
-                      placeholder="John Doe"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Email Address
-                  </label>
-                  <div className="relative">
-                    <FaEnvelope className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
-                    <input
-                      type="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleChange}
-                      className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF8C00] dark:focus:ring-orange-400"
-                      placeholder="you@example.com"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    I am a
-                  </label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setFormData({...formData, role: "jobseeker"})}
-                      className={`p-3 rounded-lg border-2 transition-all ${
-                        formData.role === "jobseeker"
-                          ? "border-[#FF8C00] dark:border-orange-400 bg-orange-50 dark:bg-orange-950/20"
-                          : "border-gray-200 dark:border-slate-700 hover:border-[#FF8C00] dark:hover:border-orange-400"
-                      }`}
-                    >
-                      <FaUser className="text-xl mx-auto mb-1 text-[#FF8C00] dark:text-orange-400" />
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Job Seeker</span>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Looking for jobs</p>
-                    </button>
-                    
-                    <button
-                      type="button"
-                      onClick={() => setFormData({...formData, role: "employer"})}
-                      className={`p-3 rounded-lg border-2 transition-all ${
-                        formData.role === "employer"
-                          ? "border-[#FF8C00] dark:border-orange-400 bg-orange-50 dark:bg-orange-950/20"
-                          : "border-gray-200 dark:border-slate-700 hover:border-[#FF8C00] dark:hover:border-orange-400"
-                      }`}
-                    >
-                      <FaUserTie className="text-xl mx-auto mb-1 text-[#FF8C00] dark:text-orange-400" />
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Employer</span>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Hiring talent</p>
-                    </button>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Password
-                  </label>
-                  <div className="relative">
-                    <FaLock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      name="password"
-                      value={formData.password}
-                      onChange={handleChange}
-                      className="w-full pl-10 pr-10 py-2 border border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF8C00] dark:focus:ring-orange-400"
-                      placeholder="••••••••"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
-                    >
-                      {showPassword ? <FaEyeSlash /> : <FaEye />}
-                    </button>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Confirm Password
-                  </label>
-                  <div className="relative">
-                    <FaLock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
-                    <input
-                      type={showConfirmPassword ? "text" : "password"}
-                      name="confirmPassword"
-                      value={formData.confirmPassword}
-                      onChange={handleChange}
-                      className="w-full pl-10 pr-10 py-2 border border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF8C00] dark:focus:ring-orange-400"
-                      placeholder="••••••••"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
-                    >
-                      {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Terms and Conditions */}
-                <div className="flex items-start gap-3 pt-2">
-                  <input
-                    type="checkbox"
-                    name="agreeTerms"
-                    checked={formData.agreeTerms}
-                    onChange={handleChange}
-                    className="mt-1 w-4 h-4 text-[#FF8C00] dark:text-orange-400 border-gray-300 dark:border-slate-600 rounded focus:ring-[#FF8C00] dark:focus:ring-orange-400"
-                  />
-                  <label className="text-sm text-gray-600 dark:text-gray-400">
-                    I agree to the{" "}
-                    <Link to="/terms" className="text-[#FF8C00] dark:text-orange-400 hover:underline font-medium">
-                      Terms of Service
-                    </Link>{" "}
-                    and{" "}
-                    <Link to="/privacy" className="text-[#FF8C00] dark:text-orange-400 hover:underline font-medium">
-                      Privacy Policy
-                    </Link>
-                  </label>
-                </div>
+            {error && (
+              <div className="mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 px-4 py-3 rounded-lg text-sm">
+                {error}
+              </div>
+            )}
+            
+            {success && (
+              <div className="mb-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-600 dark:text-green-400 px-4 py-3 rounded-lg text-sm flex items-center gap-2">
+                <FaCheckCircle /> {success}
               </div>
             )}
 
-            {/* Step 2: Profile Details */}
-            {step === 2 && (
-              <div className="space-y-4">
-                {formData.role === "employer" ? (
-                  <>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Company Name *
-                      </label>
-                      <div className="relative">
-                        <FaBuilding className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
-                        <input
-                          type="text"
-                          name="companyName"
-                          value={formData.companyName}
-                          onChange={handleChange}
-                          className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF8C00] dark:focus:ring-orange-400"
-                          placeholder="Your company name"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Company Phone *
-                      </label>
-                      <div className="relative">
-                        <FaPhone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
-                        <input
-                          type="tel"
-                          name="companyPhone"
-                          value={formData.companyPhone}
-                          onChange={handleChange}
-                          className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF8C00] dark:focus:ring-orange-400"
-                          placeholder="+255 123 456 789"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Company Website
-                      </label>
+            <form onSubmit={handleSubmit}>
+              {/* Step 1: Account Info */}
+              {step === 1 && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Full Name
+                    </label>
+                    <div className="relative">
+                      <FaUser className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
                       <input
-                        type="url"
-                        name="companyWebsite"
-                        value={formData.companyWebsite}
+                        type="text"
+                        name="name"
+                        value={formData.name}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF8C00] dark:focus:ring-orange-400"
-                        placeholder="https://yourcompany.com"
+                        className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF8C00] dark:focus:ring-orange-400"
+                        placeholder="John Doe"
                       />
                     </div>
+                  </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Company Address
-                      </label>
-                      <div className="relative">
-                        <FaMapMarkerAlt className="absolute left-3 top-3 text-gray-400 dark:text-gray-500" />
-                        <textarea
-                          name="companyAddress"
-                          value={formData.companyAddress}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Email Address
+                    </label>
+                    <div className="relative">
+                      <FaEnvelope className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+                      <input
+                        type="email"
+                        name="email"
+                        value={formData.email}
+                        onChange={handleChange}
+                        className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF8C00] dark:focus:ring-orange-400"
+                        placeholder="you@example.com"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      I am a
+                    </label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setFormData({...formData, role: "jobseeker"})}
+                        className={`p-3 rounded-lg border-2 transition-all ${
+                          formData.role === "jobseeker"
+                            ? "border-[#FF8C00] dark:border-orange-400 bg-orange-50 dark:bg-orange-950/20"
+                            : "border-gray-200 dark:border-slate-700 hover:border-[#FF8C00] dark:hover:border-orange-400"
+                        }`}
+                      >
+                        <FaUser className="text-xl mx-auto mb-1 text-[#FF8C00] dark:text-orange-400" />
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Job Seeker</span>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Looking for jobs</p>
+                      </button>
+                      
+                      <button
+                        type="button"
+                        onClick={() => setFormData({...formData, role: "employer"})}
+                        className={`p-3 rounded-lg border-2 transition-all ${
+                          formData.role === "employer"
+                            ? "border-[#FF8C00] dark:border-orange-400 bg-orange-50 dark:bg-orange-950/20"
+                            : "border-gray-200 dark:border-slate-700 hover:border-[#FF8C00] dark:hover:border-orange-400"
+                        }`}
+                      >
+                        <FaUserTie className="text-xl mx-auto mb-1 text-[#FF8C00] dark:text-orange-400" />
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Employer</span>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Hiring talent</p>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Password
+                    </label>
+                    <div className="relative">
+                      <FaLock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        name="password"
+                        value={formData.password}
+                        onChange={handleChange}
+                        className="w-full pl-10 pr-10 py-2 border border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF8C00] dark:focus:ring-orange-400"
+                        placeholder="••••••••"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+                      >
+                        {showPassword ? <FaEyeSlash /> : <FaEye />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Confirm Password
+                    </label>
+                    <div className="relative">
+                      <FaLock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+                      <input
+                        type={showConfirmPassword ? "text" : "password"}
+                        name="confirmPassword"
+                        value={formData.confirmPassword}
+                        onChange={handleChange}
+                        className="w-full pl-10 pr-10 py-2 border border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF8C00] dark:focus:ring-orange-400"
+                        placeholder="••••••••"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+                      >
+                        {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Terms and Conditions */}
+                  <div className="flex items-start gap-3 pt-2">
+                    <input
+                      type="checkbox"
+                      name="agreeTerms"
+                      checked={formData.agreeTerms}
+                      onChange={handleChange}
+                      className="mt-1 w-4 h-4 text-[#FF8C00] dark:text-orange-400 border-gray-300 dark:border-slate-600 rounded focus:ring-[#FF8C00] dark:focus:ring-orange-400"
+                    />
+                    <label className="text-sm text-gray-600 dark:text-gray-400">
+                      I agree to the{" "}
+                      <Link to="/terms" className="text-[#FF8C00] dark:text-orange-400 hover:underline font-medium">
+                        Terms of Service
+                      </Link>{" "}
+                      and{" "}
+                      <Link to="/privacy" className="text-[#FF8C00] dark:text-orange-400 hover:underline font-medium">
+                        Privacy Policy
+                      </Link>
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 2: Profile Details */}
+              {step === 2 && (
+                <div className="space-y-4">
+                  {formData.role === "employer" ? (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Company Name *
+                        </label>
+                        <div className="relative">
+                          <FaBuilding className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+                          <input
+                            type="text"
+                            name="companyName"
+                            value={formData.companyName}
+                            onChange={handleChange}
+                            className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF8C00] dark:focus:ring-orange-400"
+                            placeholder="Your company name"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Company Phone *
+                        </label>
+                        <div className="relative">
+                          <FaPhone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+                          <input
+                            type="tel"
+                            name="companyPhone"
+                            value={formData.companyPhone}
+                            onChange={handleChange}
+                            className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF8C00] dark:focus:ring-orange-400"
+                            placeholder="+255 123 456 789"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Company Website
+                        </label>
+                        <input
+                          type="url"
+                          name="companyWebsite"
+                          value={formData.companyWebsite}
                           onChange={handleChange}
-                          rows="2"
-                          className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF8C00] dark:focus:ring-orange-400"
-                          placeholder="Dar es Salaam, Tanzania"
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF8C00] dark:focus:ring-orange-400"
+                          placeholder="https://yourcompany.com"
                         />
                       </div>
-                    </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Company Description
-                      </label>
-                      <textarea
-                        name="companyDescription"
-                        value={formData.companyDescription}
-                        onChange={handleChange}
-                        rows="3"
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF8C00] dark:focus:ring-orange-400"
-                        placeholder="Tell us about your company..."
-                      />
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Company Address
+                        </label>
+                        <div className="relative">
+                          <FaMapMarkerAlt className="absolute left-3 top-3 text-gray-400 dark:text-gray-500" />
+                          <textarea
+                            name="companyAddress"
+                            value={formData.companyAddress}
+                            onChange={handleChange}
+                            rows="2"
+                            className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF8C00] dark:focus:ring-orange-400"
+                            placeholder="Dar es Salaam, Tanzania"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Company Description
+                        </label>
+                        <textarea
+                          name="companyDescription"
+                          value={formData.companyDescription}
+                          onChange={handleChange}
+                          rows="3"
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF8C00] dark:focus:ring-orange-400"
+                          placeholder="Tell us about your company..."
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-center py-8">
+                      <FaUser className="text-5xl text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                      <p className="text-gray-500 dark:text-gray-400">
+                        You're registering as a Job Seeker. You can complete your profile later.
+                      </p>
                     </div>
-                  </>
+                  )}
+                </div>
+              )}
+
+              {/* Navigation Buttons */}
+              <div className="flex gap-3 mt-6">
+                {step === 2 && (
+                  <button
+                    type="button"
+                    onClick={handleBack}
+                    className="flex-1 px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
+                  >
+                    Back
+                  </button>
+                )}
+                
+                {step === 1 ? (
+                  <button
+                    type="button"
+                    onClick={handleNext}
+                    className="flex-1 bg-[#1A2A4A] dark:bg-[#0f1a2e] text-white py-2 rounded-lg hover:bg-[#243b66] dark:hover:bg-[#1a2a4a] transition-colors"
+                  >
+                    Next
+                  </button>
                 ) : (
-                  <div className="text-center py-8">
-                    <FaUser className="text-5xl text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-                    <p className="text-gray-500 dark:text-gray-400">
-                      You're registering as a Job Seeker. You can complete your profile later.
-                    </p>
-                  </div>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="flex-1 bg-[#1A2A4A] dark:bg-[#0f1a2e] text-white py-2 rounded-lg hover:bg-[#243b66] dark:hover:bg-[#1a2a4a] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {loading ? <><FaSpinner className="animate-spin" /> Creating account...</> : "Create Account"}
+                  </button>
                 )}
               </div>
-            )}
+            </form>
 
-            {/* Navigation Buttons */}
-            <div className="flex gap-3 mt-6">
-              {step === 2 && (
-                <button
-                  type="button"
-                  onClick={handleBack}
-                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
-                >
-                  Back
-                </button>
-              )}
-              
-              {step === 1 ? (
-                <button
-                  type="button"
-                  onClick={handleNext}
-                  className="flex-1 bg-[#1A2A4A] dark:bg-[#0f1a2e] text-white py-2 rounded-lg hover:bg-[#243b66] dark:hover:bg-[#1a2a4a] transition-colors"
-                >
-                  Next
-                </button>
-              ) : (
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="flex-1 bg-[#1A2A4A] dark:bg-[#0f1a2e] text-white py-2 rounded-lg hover:bg-[#243b66] dark:hover:bg-[#1a2a4a] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  {loading ? <><FaSpinner className="animate-spin" /> Creating account...</> : "Create Account"}
-                </button>
-              )}
+            <div className="mt-6 text-center">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Already have an account?{" "}
+                <Link to="/login" className="text-[#FF8C00] dark:text-orange-400 hover:text-orange-600 font-semibold">
+                  Sign in
+                </Link>
+              </p>
             </div>
-          </form>
-
-          <div className="mt-6 text-center">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Already have an account?{" "}
-              <Link to="/login" className="text-[#FF8C00] dark:text-orange-400 hover:text-orange-600 font-semibold">
-                Sign in
-              </Link>
-            </p>
           </div>
         </div>
       </div>

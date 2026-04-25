@@ -32,10 +32,10 @@ const PostJob = () => {
   const [logoPreview, setLogoPreview] = useState(null);
   const [logoUrl, setLogoUrl] = useState("");
   
-  // NEW: Job type selection
+  // Job type selection
   const [jobSource, setJobSource] = useState("internal"); // "internal" or "external"
   const [externalUrl, setExternalUrl] = useState("");
-  const [sourcePlatform, setSourcePlatform] = useState("other");
+  const [sourcePlatform, setSourcePlatform] = useState("ajiraportal");
   
   const [formData, setFormData] = useState({
     title: "",
@@ -171,20 +171,19 @@ const PostJob = () => {
         postedAt: new Date().toISOString(),
         status: "active",
         
-        // NEW fields for external jobs
-        jobSource: jobSource,  // "internal" or "external"
+        // Fields for external jobs
+        jobSource: jobSource,
         externalUrl: jobSource === "external" ? externalUrl : null,
         sourcePlatform: jobSource === "external" ? sourcePlatform : null,
         directApply: jobSource === "internal",
         
-        // Only include requiredSkills for internal jobs
         ...(jobSource === "internal" && { requiredSkills: requiredSkillsArray })
       };
       
       // Create the job
       const createdJob = await createJob(jobData);
       
-      // Send notifications ONLY for internal jobs (external jobs don't need notifications)
+      // Send notifications ONLY for internal jobs
       if (jobSource === "internal") {
         setNotificationStatus("Sending job alerts to job seekers...");
         
@@ -198,7 +197,9 @@ const PostJob = () => {
           setNotificationStatus("No job seekers found to notify");
         }
       } else {
-        setNotificationStatus(`✅ External job listed successfully! Candidates will apply via ${sourcePlatform}`);
+        const platformName = sourcePlatform === 'ajiraportal' ? 'Ajira Portal' : 
+                            sourcePlatform === 'niajiri' ? 'Niajiri' : sourcePlatform;
+        setNotificationStatus(`✅ External job listed successfully! Candidates will apply via ${platformName}`);
       }
       
       setSuccess(jobSource === "internal" ? "Job posted successfully!" : "External job listed successfully!");
@@ -220,7 +221,7 @@ const PostJob = () => {
       setLogoUrl("");
       setJobSource("internal");
       setExternalUrl("");
-      setSourcePlatform("other");
+      setSourcePlatform("ajiraportal");
       
       // Redirect after 3 seconds
       setTimeout(() => {
@@ -330,7 +331,7 @@ const PostJob = () => {
                   </div>
                 </div>
 
-                {/* NEW: Job Type Selection */}
+                {/* Job Type Selection */}
                 <div className="border-b border-gray-200 dark:border-slate-600 pb-6">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
                     Job Type *
@@ -402,8 +403,8 @@ const PostJob = () => {
                         onChange={(e) => setSourcePlatform(e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF8C00] dark:bg-slate-600 dark:text-white"
                       >
-                        <option value="linkedin">Ajira-portal</option>
-                        <option value="linkedin">Niajiri</option>
+                        <option value="ajiraportal">Ajira Portal</option>
+                        <option value="niajiri">Niajiri</option>
                         <option value="linkedin">LinkedIn</option>
                         <option value="indeed">Indeed</option>
                         <option value="brightermonday">BrighterMonday</option>
@@ -428,7 +429,7 @@ const PostJob = () => {
                   </div>
                 )}
 
-                {/* Common Fields (always visible) */}
+                {/* Common Fields */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
