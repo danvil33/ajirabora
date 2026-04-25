@@ -26,7 +26,8 @@ import Settings from "./pages/Settings";
 import { ThemeProvider } from "./Context/ThemeContext";
 import VerifyEmail from "./pages/VerifyEmail";
 import LandingPage from "./pages/LandingPage";
-
+import ChatBubble from "./Components/ChatBubble";  // ← ADD THIS LINE
+import AdminChat from "./pages/AdminChat";
 // Component to conditionally show BottomNav
 const AppContent = () => {
   const location = useLocation();
@@ -40,6 +41,8 @@ const AppContent = () => {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-800">
       <Routes>
+        <Route path="/admin/chat" element={<AdminChat />} />
+
         <Route path="/" element={<LandingPage />} />
         <Route path="/home" element={<Home />} />
         <Route path="/verify-email" element={<VerifyEmail />} />
@@ -77,6 +80,9 @@ const AppContent = () => {
       
       {/* Cookie Consent - Appears on EVERY page */}
       <CookieConsent />
+      
+      {/* Chat Bubble - Appears on EVERY page */}
+      <ChatBubble />
     </div>
   );
 };
