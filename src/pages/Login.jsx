@@ -1,12 +1,27 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../Context/AuthContext";
-import { signInWithEmailAndPassword, sendEmailVerification } from "firebase/auth";
+import {
+  signInWithEmailAndPassword,
+  sendEmailVerification,
+  fetchSignInMethodsForEmail,
+  signOut,
+} from "firebase/auth";
 import { auth, db } from "../firebase/config";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { signInWithGoogle, linkGoogleAccount } from "../services/googleAuthService";
 import { signInWithGoogleNative, isNativePlatform } from "../services/nativeGoogleAuth";
-import { FaEnvelope, FaLock, FaEye, FaEyeSlash, FaCheckCircle, FaSpinner, FaExclamationTriangle, FaGoogle, FaBriefcase, FaUserTie } from "react-icons/fa";
+import {
+  FaEnvelope,
+  FaLock,
+  FaEye,
+  FaEyeSlash,
+  FaCheckCircle,
+  FaSpinner,
+  FaExclamationTriangle,
+  FaBriefcase,
+  FaUserTie,
+} from "react-icons/fa";
 import { FcGoogle } from "react-icons/fc";
 import logo from "../Assets/logo.png";
 import poster from "../Assets/poster.png";
@@ -14,58 +29,93 @@ import poster from "../Assets/poster.png";
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState("");
+
+  const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resendMessage, setResendMessage] = useState("");
+
   const [showLinkingOption, setShowLinkingOption] = useState(false);
   const [pendingGoogleEmail, setPendingGoogleEmail] = useState("");
-  const [resendMessage, setResendMessage] = useState("");
-  const [resending, setResending] = useState(false);
+
   const navigate = useNavigate();
   const { setUser } = useAuth();
 
-  // Improved resend verification email function
-  const resendVerificationEmail = async () => {
-    if (!email) {
-      setError("Please enter your email address first");
-      return;
+  const getFirebaseErrorMessage = (err) => {
+    switch (err.code) {
+      case "auth/user-not-found":
+      case "auth/invalid-credential":
+        return "Invalid email or password.";
+      case "auth/wrong-password":
+        return "Incorrect password.";
+      case "auth/invalid-email":
+        return "Invalid email address.";
+      case "auth/user-disabled":
+        return "This account has been disabled.";
+      case "auth/too-many-requests":
+        return "Too many attempts. Please wait and try again later.";
+      case "auth/network-request-failed":
+        return "Network error. Check your internet connection.";
+      default:
+        return err.message || "Something went wrong. Please try again.";
     }
-    
+  };
+
+  const resendVerificationEmail = async () => {
+    const cleanEmail = email.trim();
+
     setResending(true);
-    setResendMessage("");
     setError("");
-    
+    setSuccess("");
+    setResendMessage("");
+
     try {
-      // First, check if user exists with this email
-      const signInMethods = await fetchSignInMethodsForEmail(auth, email);
-      if (signInMethods.length === 0) {
-        setError("No account found with this email address");
-        setResending(false);
+      let currentUser = auth.currentUser;
+
+      if (!currentUser) {
+        if (!cleanEmail || !password) {
+          setError("Enter your email and password first, then click resend.");
+          return;
+        }
+
+        const methods = await fetchSignInMethodsForEmail(auth, cleanEmail);
+
+        if (methods.length === 0) {
+          setError("No account found with this email address.");
+          return;
+        }
+
+        const userCredential = await signInWithEmailAndPassword(
+          auth,
+          cleanEmail,
+          password
+        );
+
+        currentUser = userCredential.user;
+      }
+
+      if (currentUser.emailVerified) {
+        setSuccess("Your email is already verified. You can sign in now.");
+        await signOut(auth);
         return;
       }
-      
-      // Sign in temporarily to get user object
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-      
-      if (!user.emailVerified) {
-        await sendEmailVerification(user);
-        setResendMessage(`✅ Verification email sent to ${email}! Please check your inbox.`);
-        // Sign out until they verify
-        await auth.signOut();
-      } else {
-        setError("Your email is already verified. You can login now.");
-      }
+
+      await sendEmailVerification(currentUser, {
+        url: `${window.location.origin}/login`,
+        handleCodeInApp: false,
+      });
+
+      setResendMessage(
+        "Verification email sent. Check your inbox and spam folder."
+      );
+
+      await signOut(auth);
     } catch (err) {
-      console.error("Resend error:", err);
-      if (err.code === "auth/wrong-password") {
-        setError("Incorrect password. Please enter your correct password to resend verification.");
-      } else if (err.code === "auth/user-not-found") {
-        setError("No account found with this email");
-      } else {
-        setError("Failed to resend verification email. Please try again.");
-      }
+      console.error("Resend verification error:", err);
+      setError(getFirebaseErrorMessage(err));
     } finally {
       setResending(false);
     }
@@ -73,65 +123,63 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    const cleanEmail = email.trim();
+
     setError("");
     setSuccess("");
     setResendMessage("");
-    setLoading(true);
     setShowLinkingOption(false);
+    setLoading(true);
 
     try {
-      // 1. Sign in with Firebase Auth
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-      
-      // 2. Check if email is verified using Firebase Auth's emailVerified
-      if (!user.emailVerified) {
-        await auth.signOut();
-        setError(`⚠️ Please verify your email before logging in. We've sent a verification link to ${email}.`);
-        setLoading(false);
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        cleanEmail,
+        password
+      );
+
+      const currentUser = userCredential.user;
+
+      if (!currentUser.emailVerified) {
+        setError(
+          "Please verify your email before logging in. If you did not receive the email, click resend below."
+        );
         return;
       }
-      
-      // 3. Check Firestore user document exists
-      const userDoc = await getDoc(doc(db, "users", user.uid));
-      if (!userDoc.exists()) {
-        await setDoc(doc(db, "users", user.uid), {
-          name: user.displayName || email.split('@')[0],
-          email: user.email,
+
+      const userRef = doc(db, "users", currentUser.uid);
+      const userSnap = await getDoc(userRef);
+
+      if (!userSnap.exists()) {
+        await setDoc(userRef, {
+          name: currentUser.displayName || cleanEmail.split("@")[0],
+          email: currentUser.email,
           role: "jobseeker",
           emailVerified: true,
-          createdAt: new Date().toISOString()
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
         });
       } else {
-        const userData = userDoc.data();
-        if (!userData.emailVerified) {
-          await setDoc(doc(db, "users", user.uid), { emailVerified: true }, { merge: true });
-        }
+        await setDoc(
+          userRef,
+          {
+            emailVerified: true,
+            updatedAt: new Date().toISOString(),
+          },
+          { merge: true }
+        );
       }
-      
-      // 4. Login successful
-      setUser(user);
+
+      setUser(currentUser);
       setSuccess("Login successful! Redirecting...");
-      
+
       setTimeout(() => {
         navigate("/home");
-      }, 1500);
-      
+      }, 1000);
     } catch (err) {
       console.error("Login error:", err);
-      if (err.code === "auth/user-not-found") {
-        setError("No account found with this email");
-      } else if (err.code === "auth/wrong-password") {
-        setError("Incorrect password");
-      } else if (err.code === "auth/invalid-email") {
-        setError("Invalid email address");
-      } else if (err.code === "auth/user-disabled") {
-        setError("This account has been disabled");
-      } else if (err.code === "auth/too-many-requests") {
-        setError("Too many failed attempts. Please try again later.");
-      } else {
-        setError(err.message || "Failed to login. Please try again.");
-      }
+      setError(getFirebaseErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -143,38 +191,50 @@ const Login = () => {
     setResendMessage("");
     setLoading(true);
     setShowLinkingOption(false);
-    
+
     try {
-      let result;
-      
-      if (isNativePlatform()) {
-        result = await signInWithGoogleNative();
-      } else {
-        result = await signInWithGoogle();
-      }
-      
+      const result = isNativePlatform()
+        ? await signInWithGoogleNative()
+        : await signInWithGoogle();
+
       if (result.success) {
-        const user = auth.currentUser;
-        if (user && !user.emailVerified) {
-          await sendEmailVerification(user);
-          await auth.signOut();
-          setError("Please verify your email. A verification link has been sent.");
-          setLoading(false);
-          return;
+        const currentUser = auth.currentUser;
+
+        if (currentUser) {
+          const userRef = doc(db, "users", currentUser.uid);
+          const userSnap = await getDoc(userRef);
+
+          if (!userSnap.exists()) {
+            await setDoc(userRef, {
+              name: currentUser.displayName || currentUser.email?.split("@")[0],
+              email: currentUser.email,
+              role: "jobseeker",
+              emailVerified: currentUser.emailVerified,
+              provider: "google",
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            });
+          }
         }
-        
+
         setSuccess("Login successful! Redirecting...");
+
         setTimeout(() => {
           navigate("/home");
-        }, 1500);
+        }, 1000);
+
+        return;
+      }
+
+      if (result.needsLinking) {
+        setPendingGoogleEmail(result.email);
+        setEmail(result.email || "");
+        setShowLinkingOption(true);
+        setError(
+          `An account already exists with ${result.email}. Enter your password to link Google.`
+        );
       } else {
-        if (result.needsLinking) {
-          setPendingGoogleEmail(result.email);
-          setShowLinkingOption(true);
-          setError(`An account already exists with ${result.email}. Would you like to sign in with your password first?`);
-        } else {
-          setError(result.error);
-        }
+        setError(result.error || "Failed to sign in with Google.");
       }
     } catch (err) {
       console.error("Google sign-in error:", err);
@@ -186,74 +246,89 @@ const Login = () => {
 
   const handleLinkGoogleAccount = async () => {
     setError("");
+    setSuccess("");
+
+    if (!password) {
+      setError("Enter your password to link Google account.");
+      return;
+    }
+
     setLoading(true);
-    
+
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, pendingGoogleEmail, password);
-      const user = userCredential.user;
-      
-      if (!user.emailVerified) {
-        await auth.signOut();
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        pendingGoogleEmail,
+        password
+      );
+
+      const currentUser = userCredential.user;
+
+      if (!currentUser.emailVerified) {
         setError("Please verify your email before linking Google account.");
-        setLoading(false);
         setShowLinkingOption(false);
         return;
       }
-      
+
       const linkResult = await linkGoogleAccount();
+
       if (linkResult.success) {
         setSuccess("Google account linked successfully! Redirecting...");
+
         setTimeout(() => {
           navigate("/home");
-        }, 1500);
+        }, 1000);
       } else {
-        setError(linkResult.error);
+        setError(linkResult.error || "Failed to link Google account.");
       }
     } catch (err) {
       console.error("Link account error:", err);
-      if (err.code === "auth/wrong-password") {
-        setError("Incorrect password. Please try again.");
-      } else {
-        setError("Failed to link Google account. Please try again.");
-      }
+      setError(getFirebaseErrorMessage(err));
     } finally {
       setLoading(false);
-      setShowLinkingOption(false);
     }
   };
 
-  const handleCancelLinking = () => {
+  const handleCancelLinking = async () => {
     setShowLinkingOption(false);
     setPendingGoogleEmail("");
     setError("");
+
+    if (auth.currentUser && !auth.currentUser.emailVerified) {
+      await signOut(auth);
+    }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-5xl w-full">
         <div className="flex flex-col md:flex-row rounded-2xl shadow-xl overflow-hidden">
-          
-          {/* Left Side - Image Section */}
           <div className="hidden md:flex md:w-1/2 bg-gradient-to-br from-[#1A2A4A] to-[#2a3d6e] relative overflow-hidden">
-            <div className="absolute top-10 left-10 w-32 h-32 bg-[#FF8C00] rounded-full opacity-10 blur-2xl"></div>
-            <div className="absolute bottom-10 right-10 w-40 h-40 bg-[#FF8C00] rounded-full opacity-10 blur-2xl"></div>
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-60 h-60 bg-white/5 rounded-full blur-3xl"></div>
-            
+            <div className="absolute top-10 left-10 w-32 h-32 bg-[#FF8C00] rounded-full opacity-10 blur-2xl" />
+            <div className="absolute bottom-10 right-10 w-40 h-40 bg-[#FF8C00] rounded-full opacity-10 blur-2xl" />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-60 h-60 bg-white/5 rounded-full blur-3xl" />
+
             <div className="relative z-10 flex flex-col justify-center items-center p-8 w-full h-full">
-              <img 
-                src={poster} 
-                alt="AjiraBora - Find your dream job" 
+              <img
+                src={poster}
+                alt="AjiraBora - Find your dream job"
                 className="w-full h-auto object-contain rounded-2xl max-h-[500px]"
               />
-              
+
               <div className="mt-6 text-center">
-                <h3 className="text-white text-xl font-bold mb-2">Welcome Back!</h3>
-                <p className="text-gray-300 text-sm">Continue your journey with AjiraBora</p>
+                <h3 className="text-white text-xl font-bold mb-2">
+                  Welcome Back!
+                </h3>
+                <p className="text-gray-300 text-sm">
+                  Continue your journey with AjiraBora
+                </p>
+
                 <div className="flex items-center justify-center gap-4 mt-4">
                   <div className="flex items-center gap-1">
                     <FaBriefcase className="text-[#FF8C00] text-xs" />
                     <span className="text-white text-xs">1,000+ Jobs</span>
                   </div>
+
                   <div className="flex items-center gap-1">
                     <FaUserTie className="text-[#FF8C00] text-xs" />
                     <span className="text-white text-xs">500+ Employers</span>
@@ -263,12 +338,15 @@ const Login = () => {
             </div>
           </div>
 
-          {/* Right Side - Form Section */}
           <div className="w-full md:w-1/2 bg-white dark:bg-slate-800 p-6 sm:p-8">
             <div className="text-center mb-8">
               <img src={logo} alt="AjiraBora" className="h-24 mx-auto mb-4" />
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Welcome Back</h1>
-              <p className="text-gray-500 dark:text-gray-400 mt-1">Sign in to your account</p>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                Welcome Back
+              </h1>
+              <p className="text-gray-500 dark:text-gray-400 mt-1">
+                Sign in to your account
+              </p>
             </div>
 
             {error && (
@@ -277,25 +355,40 @@ const Login = () => {
                   <FaExclamationTriangle className="text-sm mt-0.5 flex-shrink-0" />
                   <span>{error}</span>
                 </div>
-                {/* Resend verification button - improved */}
-                {error.includes("verify your email") && (
-                  <div className="mt-2 pt-2 border-t border-red-200 dark:border-red-800">
+
+                {error.toLowerCase().includes("verify") && (
+                  <div className="mt-3 pt-3 border-t border-red-200 dark:border-red-800">
                     <button
+                      type="button"
                       onClick={resendVerificationEmail}
-                      disabled={resending}
-                      className="text-sm text-[#FF8C00] dark:text-orange-400 hover:underline font-medium flex items-center gap-1"
+                      disabled={resending || loading}
+                      className="text-sm text-[#FF8C00] dark:text-orange-400 hover:underline font-medium flex items-center gap-1 disabled:opacity-60"
                     >
                       {resending ? (
-                        <><FaSpinner className="animate-spin text-xs" /> Sending...</>
+                        <>
+                          <FaSpinner className="animate-spin text-xs" />
+                          Sending verification...
+                        </>
                       ) : (
-                        <><FaEnvelope className="text-xs" /> Resend verification email →</>
+                        <>
+                          <FaEnvelope className="text-xs" />
+                          Resend verification email
+                        </>
                       )}
                     </button>
+
+                    <p className="text-xs mt-2 text-red-500 dark:text-red-300">
+                      Keep your email and password filled, then click resend.
+                    </p>
                   </div>
                 )}
+
                 {showLinkingOption && pendingGoogleEmail && (
                   <div className="mt-3 pt-3 border-t border-red-200 dark:border-red-800">
-                    <p className="text-sm mb-2">Sign in with your password to link your Google account:</p>
+                    <p className="text-sm mb-2">
+                      Sign in with your password to link your Google account:
+                    </p>
+
                     <div className="space-y-2">
                       <input
                         type="password"
@@ -304,15 +397,19 @@ const Login = () => {
                         onChange={(e) => setPassword(e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg text-sm"
                       />
+
                       <div className="flex gap-2">
                         <button
+                          type="button"
                           onClick={handleLinkGoogleAccount}
-                          disabled={!password}
-                          className="flex-1 bg-[#FF8C00] text-white py-2 rounded-lg text-sm font-semibold hover:bg-orange-600 transition"
+                          disabled={!password || loading}
+                          className="flex-1 bg-[#FF8C00] text-white py-2 rounded-lg text-sm font-semibold hover:bg-orange-600 transition disabled:opacity-60"
                         >
                           Link & Sign In
                         </button>
+
                         <button
+                          type="button"
                           onClick={handleCancelLinking}
                           className="flex-1 border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 py-2 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-slate-700 transition"
                         >
@@ -324,13 +421,13 @@ const Login = () => {
                 )}
               </div>
             )}
-            
+
             {resendMessage && (
               <div className="mb-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-600 dark:text-green-400 px-4 py-3 rounded-lg text-sm flex items-center gap-2">
                 <FaCheckCircle /> {resendMessage}
               </div>
             )}
-            
+
             {success && (
               <div className="mb-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-600 dark:text-green-400 px-4 py-3 rounded-lg text-sm flex items-center gap-2">
                 <FaCheckCircle /> {success}
@@ -343,6 +440,7 @@ const Login = () => {
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Email Address
                   </label>
+
                   <div className="relative">
                     <FaEnvelope className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 text-sm" />
                     <input
@@ -360,8 +458,10 @@ const Login = () => {
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Password
                   </label>
+
                   <div className="relative">
                     <FaLock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 text-sm" />
+
                     <input
                       type={showPassword ? "text" : "password"}
                       value={password}
@@ -370,9 +470,10 @@ const Login = () => {
                       placeholder="Enter your password"
                       required
                     />
+
                     <button
                       type="button"
-                      onClick={() => setShowPassword(!showPassword)}
+                      onClick={() => setShowPassword((prev) => !prev)}
                       className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                     >
                       {showPassword ? <FaEyeSlash /> : <FaEye />}
@@ -381,17 +482,27 @@ const Login = () => {
                 </div>
 
                 <div className="text-right">
-                  <Link to="/forgot-password" className="text-sm text-[#FF8C00] dark:text-orange-400 hover:text-orange-600 dark:hover:text-orange-300 hover:underline">
+                  <Link
+                    to="/forgot-password"
+                    className="text-sm text-[#FF8C00] dark:text-orange-400 hover:text-orange-600 dark:hover:text-orange-300 hover:underline"
+                  >
                     Forgot password?
                   </Link>
                 </div>
 
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || resending}
                   className="w-full bg-[#1A2A4A] dark:bg-[#0f1a2e] hover:bg-[#243b66] dark:hover:bg-[#1a2a4a] text-white font-semibold py-2.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-4 flex items-center justify-center gap-2"
                 >
-                  {loading ? <><FaSpinner className="animate-spin" /> Signing in...</> : "Sign In"}
+                  {loading ? (
+                    <>
+                      <FaSpinner className="animate-spin" />
+                      Signing in...
+                    </>
+                  ) : (
+                    "Sign In"
+                  )}
                 </button>
               </form>
             )}
@@ -401,7 +512,10 @@ const Login = () => {
                 <div className="mt-6 text-center">
                   <p className="text-sm text-gray-600 dark:text-gray-400">
                     Don't have an account?{" "}
-                    <Link to="/register" className="text-[#FF8C00] dark:text-orange-400 hover:text-orange-600 dark:hover:text-orange-300 font-semibold">
+                    <Link
+                      to="/register"
+                      className="text-[#FF8C00] dark:text-orange-400 hover:text-orange-600 dark:hover:text-orange-300 font-semibold"
+                    >
                       Create Account
                     </Link>
                   </p>
@@ -409,21 +523,26 @@ const Login = () => {
 
                 <div className="relative my-6">
                   <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-gray-200 dark:border-slate-700"></div>
+                    <div className="w-full border-t border-gray-200 dark:border-slate-700" />
                   </div>
+
                   <div className="relative flex justify-center text-sm">
-                    <span className="px-2 bg-white dark:bg-slate-800 text-gray-500 dark:text-gray-400">Or continue with</span>
+                    <span className="px-2 bg-white dark:bg-slate-800 text-gray-500 dark:text-gray-400">
+                      Or continue with
+                    </span>
                   </div>
                 </div>
 
                 <button
                   type="button"
                   onClick={handleGoogleSignIn}
-                  disabled={loading}
-                  className="w-full flex items-center justify-center gap-3 px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
+                  disabled={loading || resending}
+                  className="w-full flex items-center justify-center gap-3 px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors disabled:opacity-60"
                 >
                   <FcGoogle className="text-xl" />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Sign in with Google</span>
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Sign in with Google
+                  </span>
                 </button>
               </>
             )}
