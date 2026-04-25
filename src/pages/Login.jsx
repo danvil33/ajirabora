@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../Context/AuthContext";
-import { signInWithEmailAndPassword, fetchSignInMethodsForEmail } from "firebase/auth";
+import { signInWithEmailAndPassword, sendEmailVerification } from "firebase/auth";
 import { auth, db } from "../firebase/config";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { signInWithGoogle, linkGoogleAccount } from "../services/googleAuthService";
@@ -21,28 +21,53 @@ const Login = () => {
   const [showLinkingOption, setShowLinkingOption] = useState(false);
   const [pendingGoogleEmail, setPendingGoogleEmail] = useState("");
   const [resendMessage, setResendMessage] = useState("");
+  const [resending, setResending] = useState(false);
   const navigate = useNavigate();
   const { setUser } = useAuth();
 
-  // Function to resend verification email
+  // Improved resend verification email function
   const resendVerificationEmail = async () => {
+    if (!email) {
+      setError("Please enter your email address first");
+      return;
+    }
+    
+    setResending(true);
     setResendMessage("");
     setError("");
     
     try {
+      // First, check if user exists with this email
+      const signInMethods = await fetchSignInMethodsForEmail(auth, email);
+      if (signInMethods.length === 0) {
+        setError("No account found with this email address");
+        setResending(false);
+        return;
+      }
+      
       // Sign in temporarily to get user object
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
       
       if (!user.emailVerified) {
-        await user.sendEmailVerification();
-        setResendMessage("Verification email resent! Please check your inbox.");
+        await sendEmailVerification(user);
+        setResendMessage(`✅ Verification email sent to ${email}! Please check your inbox.`);
         // Sign out until they verify
         await auth.signOut();
+      } else {
+        setError("Your email is already verified. You can login now.");
       }
     } catch (err) {
       console.error("Resend error:", err);
-      setError("Failed to resend verification email. Please try again.");
+      if (err.code === "auth/wrong-password") {
+        setError("Incorrect password. Please enter your correct password to resend verification.");
+      } else if (err.code === "auth/user-not-found") {
+        setError("No account found with this email");
+      } else {
+        setError("Failed to resend verification email. Please try again.");
+      }
+    } finally {
+      setResending(false);
     }
   };
 
@@ -62,7 +87,7 @@ const Login = () => {
       // 2. Check if email is verified using Firebase Auth's emailVerified
       if (!user.emailVerified) {
         await auth.signOut();
-        setError(`Please verify your email before logging in. Check your inbox at ${email} for the verification link.`);
+        setError(`⚠️ Please verify your email before logging in. We've sent a verification link to ${email}.`);
         setLoading(false);
         return;
       }
@@ -131,7 +156,7 @@ const Login = () => {
       if (result.success) {
         const user = auth.currentUser;
         if (user && !user.emailVerified) {
-          await user.sendEmailVerification();
+          await sendEmailVerification(user);
           await auth.signOut();
           setError("Please verify your email. A verification link has been sent.");
           setLoading(false);
@@ -208,14 +233,12 @@ const Login = () => {
       <div className="max-w-5xl w-full">
         <div className="flex flex-col md:flex-row rounded-2xl shadow-xl overflow-hidden">
           
-          {/* Left Side - Image Section (Hidden on mobile, visible on md+) */}
+          {/* Left Side - Image Section */}
           <div className="hidden md:flex md:w-1/2 bg-gradient-to-br from-[#1A2A4A] to-[#2a3d6e] relative overflow-hidden">
-            {/* Decorative circles */}
             <div className="absolute top-10 left-10 w-32 h-32 bg-[#FF8C00] rounded-full opacity-10 blur-2xl"></div>
             <div className="absolute bottom-10 right-10 w-40 h-40 bg-[#FF8C00] rounded-full opacity-10 blur-2xl"></div>
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-60 h-60 bg-white/5 rounded-full blur-3xl"></div>
             
-            {/* Image */}
             <div className="relative z-10 flex flex-col justify-center items-center p-8 w-full h-full">
               <img 
                 src={poster} 
@@ -223,7 +246,6 @@ const Login = () => {
                 className="w-full h-auto object-contain rounded-2xl max-h-[500px]"
               />
               
-              {/* Quote overlay */}
               <div className="mt-6 text-center">
                 <h3 className="text-white text-xl font-bold mb-2">Welcome Back!</h3>
                 <p className="text-gray-300 text-sm">Continue your journey with AjiraBora</p>
@@ -243,7 +265,6 @@ const Login = () => {
 
           {/* Right Side - Form Section */}
           <div className="w-full md:w-1/2 bg-white dark:bg-slate-800 p-6 sm:p-8">
-            {/* Logo */}
             <div className="text-center mb-8">
               <img src={logo} alt="AjiraBora" className="h-24 mx-auto mb-4" />
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Welcome Back</h1>
@@ -256,13 +277,21 @@ const Login = () => {
                   <FaExclamationTriangle className="text-sm mt-0.5 flex-shrink-0" />
                   <span>{error}</span>
                 </div>
+                {/* Resend verification button - improved */}
                 {error.includes("verify your email") && (
-                  <button
-                    onClick={resendVerificationEmail}
-                    className="mt-2 text-sm text-[#FF8C00] dark:text-orange-400 hover:underline font-medium"
-                  >
-                    Resend verification email →
-                  </button>
+                  <div className="mt-2 pt-2 border-t border-red-200 dark:border-red-800">
+                    <button
+                      onClick={resendVerificationEmail}
+                      disabled={resending}
+                      className="text-sm text-[#FF8C00] dark:text-orange-400 hover:underline font-medium flex items-center gap-1"
+                    >
+                      {resending ? (
+                        <><FaSpinner className="animate-spin text-xs" /> Sending...</>
+                      ) : (
+                        <><FaEnvelope className="text-xs" /> Resend verification email →</>
+                      )}
+                    </button>
+                  </div>
                 )}
                 {showLinkingOption && pendingGoogleEmail && (
                   <div className="mt-3 pt-3 border-t border-red-200 dark:border-red-800">
