@@ -1,0 +1,50 @@
+openapi: 3.0.0
+info:
+  title: AjiraBora AI API
+  version: 1.0.0
+servers:
+  - url: https://ajirabora.com
+paths:
+  /api/ajirabora-ai/analyze:
+    post:
+      summary: Analyze job match
+      operationId: analyzeJob
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, jobId]
+              properties:
+                userId: { type: string }
+                jobId: { type: string }
+      responses:
+        '200': { description: Success }
+  /api/ajirabora-ai/apply:
+    post:
+      summary: Submit application
+      operationId: applyToJob
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, jobId, coverLetter]
+              properties:
+                userId: { type: string }
+                jobId: { type: string }
+                coverLetter: { type: string }
+                matchScore: { type: number }
+                matchReasons: { type: array }
+      responses:
+        '200': { description: Success }
+components:
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      in: header
+      name: x-api-key
+security:
+  - apiKey: []

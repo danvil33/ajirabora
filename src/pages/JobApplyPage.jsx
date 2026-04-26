@@ -6,6 +6,7 @@ import { submitApplication, hasUserApplied } from "../services/applicationServic
 import { getUserProfile, isProfileComplete } from "../services/userService";
 import Header from "../Components/Header/Header";
 import Footer from "../Components/Footer/Footer";
+import AjiraBoraAI from "../Components/AjiraBoraAI";
 import { 
   BiBriefcase, 
   BiMoney, 
@@ -366,14 +367,19 @@ const JobApplyPage = () => {
             {/* Right Column - Application Section */}
             <div className="lg:col-span-1">
               <div className="sticky top-24 space-y-6">
-                {/* Share Button */}
-                <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 p-4">
+                {/* Share Button & AI Analysis */}
+                <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 p-4 space-y-3">
                   <button
                     onClick={shareOnWhatsApp}
                     className="w-full flex items-center justify-center gap-2 py-2 border border-green-500 dark:border-green-400 text-green-600 dark:text-green-400 rounded-lg hover:bg-green-50 dark:hover:bg-green-950/20 transition-colors"
                   >
                     <FaWhatsapp className="text-green-600 dark:text-green-400" /> Share this Job
                   </button>
+                  
+                  {/* AjiraBora AI Button - Shows for eligible users only */}
+                  {!isExternal && user && !alreadyApplied && profileComplete && (
+                    <AjiraBoraAI jobId={job?.id} jobTitle={job?.title} />
+                  )}
                 </div>
 
                 {/* Application Section - Different for External Jobs */}
