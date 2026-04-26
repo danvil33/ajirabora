@@ -1,18 +1,15 @@
 import { db } from '../_utils/firebaseAdmin.js';
 
-// Helper function to ensure skills is always an array
-function ensureArray(value) {
-  if (Array.isArray(value)) return value;
-  if (typeof value === 'string') return value.split(',').map(s => s.trim());
-  if (value === null || value === undefined) return [];
-  return [];
+// Helper to safely get value
+function safeValue(value, defaultValue = '') {
+  return (value !== null && value !== undefined) ? value : defaultValue;
 }
 
-// Helper function to ensure string
-function ensureString(value) {
-  if (typeof value === 'string') return value;
-  if (value === null || value === undefined) return '';
-  return String(value);
+// Helper to ensure array
+function safeArray(value) {
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'string' && value.length > 0) return value.split(',').map(s => s.trim());
+  return [];
 }
 
 export default async function handler(req, res) {
@@ -30,6 +27,7 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Check API key
     const apiKey = req.headers['x-api-key'];
     const expectedApiKey = process.env.AJIRABORA_AI_KEY;
     
@@ -53,13 +51,13 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Database connection error' });
     }
 
-    // Get user data
+    // Get user profile (FULL DATA)
     const userDoc = await db.collection('users').doc(userId).get();
     if (!userDoc.exists) {
       return res.status(404).json({ error: `User ${userId} not found` });
     }
 
-    // Get job data
+    // Get job details
     const jobDoc = await db.collection('jobs').doc(jobId).get();
     if (!jobDoc.exists) {
       return res.status(404).json({ error: `Job ${jobId} not found` });
@@ -68,80 +66,105 @@ export default async function handler(req, res) {
     const userData = userDoc.data();
     const jobData = jobDoc.data();
 
-    // Safely extract data with fallbacks
-    const userSkills = ensureArray(userData.skills);
-    const jobSkills = ensureArray(jobData.skills);
+    // Extract ALL user profile fields
+    const userName = safeValue(userData.fullName, userData.name);
+    const userEmail = safeValue(userData.email);
+    const userPhone = safeValue(userData.phone);
+    const userLocation = safeValue(userData.location);
+    const userCurrentRole = safeValue(userData.currentRole);
+    const userYearsExperience = safeValue(userData.yearsOfExperience, 0);
+    const userSkills = safeArray(userData.skills);
+    const userExperience = safeValue(userData.experience);
+    const userEducation = safeValue(userData.education);
+    const userPortfolio = safeValue(userData.portfolio);
+    const userLinkedin = safeValue(userData.linkedin);
+    const userGithub = safeValue(userData.github);
+    const userBio = safeValue(userData.bio);
     
-    const userName = userData.fullName || userData.name || 'Not specified';
-    const userEmail = userData.email || 'Not specified';
-    const userPhone = userData.phone || 'Not specified';
-    const userLocation = userData.location || 'Not specified';
-    const userCurrentRole = userData.currentRole || 'Not specified';
-    const userYearsExperience = userData.yearsOfExperience || 0;
-    const userExperience = ensureString(userData.experience);
-    const userEducation = ensureString(userData.education);
-    const userPortfolio = userData.portfolio || 'Not specified';
-    const userLinkedin = userData.linkedin || 'Not specified';
+    // CV/Resume data
+    const hasResume = !!userData.resumeUrl;
+    const resumeUrl = safeValue(userData.resumeUrl);
+    const resumeFileName = safeValue(userData.resumeFileName);
+    const cvText = safeValue(userData.cvText); // If user pasted CV text
 
-    // Build profile summary
+    // Build comprehensive profile summary for GPT
     const profileSummary = `
-Name: ${userName}
+=== USER PROFILE ===
+Full Name: ${userName}
 Email: ${userEmail}
 Phone: ${userPhone}
 Location: ${userLocation}
 Current Role: ${userCurrentRole}
-Years Experience: ${userYearsExperience}
-Skills: ${userSkills.join(', ') || 'None specified'}
-Experience: ${userExperience || 'None specified'}
-Education: ${userEducation || 'None specified'}
-Portfolio: ${userPortfolio}
-LinkedIn: ${userLinkedin}
+Years of Experience: ${userYearsExperience}
+Skills: ${userSkills.join(', ')}
+Bio/Summary: ${userBio}
+
+=== WORK EXPERIENCE ===
+${userExperience || 'Not provided'}
+
+=== EDUCATION ===
+${userEducation || 'Not provided'}
+
+=== LINKS ===
+Portfolio: ${userPortfolio || 'Not provided'}
+LinkedIn: ${userLinkedin || 'Not provided'}
+GitHub: ${userGithub || 'Not provided'}
+
+=== CV/RESUME ===
+${hasResume ? `✅ CV uploaded: ${resumeFileName || 'resume.pdf'}` : '❌ No CV uploaded'}
+${resumeUrl ? `CV URL: ${resumeUrl}` : ''}
+${cvText ? `\n=== CV TEXT ===\n${cvText.substring(0, 2000)}` : ''}
     `.trim();
 
-    // CV/Resume info
-    const hasResume = !!userData.resumeUrl;
-    const resumeUrl = userData.resumeUrl || null;
-    const resumeFileName = userData.resumeFileName || null;
-
+    // Return COMPLETE data
     return res.status(200).json({
       success: true,
       user: {
+        // Basic info
         id: userId,
         name: userName,
         email: userEmail,
         phone: userPhone,
         location: userLocation,
         
-        // Profile summary for GPT
-        profileSummary: profileSummary,
-        
-        // Structured data
+        // Professional info
+        currentRole: userCurrentRole,
+        yearsOfExperience: userYearsExperience,
         skills: userSkills,
         experience: userExperience,
         education: userEducation,
-        currentRole: userCurrentRole,
-        yearsOfExperience: userYearsExperience,
+        bio: userBio,
+        
+        // Links
         portfolio: userPortfolio,
         linkedin: userLinkedin,
+        github: userGithub,
         
         // CV/Resume
         hasResume: hasResume,
         resumeUrl: resumeUrl,
         resumeFileName: resumeFileName,
-        cvNote: !hasResume ? "No CV uploaded. Consider adding one." : "CV available. Ask user about their experience if needed."
+        cvText: cvText || null,
+        
+        // Complete summary for GPT
+        profileSummary: profileSummary,
+        
+        // Raw data (everything)
+        rawProfile: userData
       },
       job: {
         id: jobId,
-        title: jobData.title || 'Not specified',
-        company: jobData.company || 'Not specified',
-        description: jobData.description || 'Not specified',
-        requirements: jobData.requirements || 'Not specified',
-        skills: jobSkills,
-        type: jobData.type || 'Not specified',
-        location: jobData.location || 'Not specified',
-        salary: jobData.salary || 'Not specified',
-        level: jobData.level || 'Not specified',
-        postedAt: jobData.postedAt || 'Not specified'
+        title: safeValue(jobData.title),
+        company: safeValue(jobData.company),
+        description: safeValue(jobData.description),
+        requirements: safeValue(jobData.requirements),
+        skills: safeArray(jobData.skills),
+        type: safeValue(jobData.type),
+        location: safeValue(jobData.location),
+        salary: safeValue(jobData.salary),
+        level: safeValue(jobData.level),
+        postedAt: safeValue(jobData.postedAt),
+        rawJob: jobData
       }
     });
 
@@ -149,8 +172,7 @@ LinkedIn: ${userLinkedin}
     console.error('Error:', error.message);
     return res.status(500).json({ 
       error: 'Server error', 
-      message: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      message: error.message 
     });
   }
 }

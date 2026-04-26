@@ -26,14 +26,7 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'Invalid API key' });
     }
 
-    const { 
-      userId, 
-      jobId, 
-      coverLetter, 
-      matchScore, 
-      matchReasons,
-      includeCV = true  // New parameter
-    } = req.body;
+    const { userId, jobId, coverLetter, matchScore, matchReasons } = req.body;
 
     if (!userId || !jobId || !coverLetter) {
       return res.status(400).json({ error: 'userId, jobId, and coverLetter required' });
@@ -53,6 +46,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Already applied for this job' });
     }
 
+    // Get FULL user profile
     const userDoc = await db.collection('users').doc(userId).get();
     const jobDoc = await db.collection('jobs').doc(jobId).get();
 
@@ -62,18 +56,7 @@ export default async function handler(req, res) {
     const userData = userDoc.data();
     const jobData = jobDoc.data();
 
-    // Prepare CV information
-    let cvInfo = null;
-    if (includeCV && userData.resumeUrl) {
-      cvInfo = {
-        url: userData.resumeUrl,
-        fileName: userData.resumeFileName || 'resume.pdf',
-        fileType: userData.resumeFileType || 'pdf',
-        included: true
-      };
-    }
-
-    // Create application with CV
+    // Create COMPLETE application with CV
     const application = {
       userId,
       jobId,
@@ -81,22 +64,36 @@ export default async function handler(req, res) {
       matchScore: matchScore || 0,
       matchReasons: matchReasons || [],
       status: 'pending',
-      // Applicant info
+      
+      // User full profile
       applicantName: userData.fullName || userData.name || 'Unknown',
       applicantEmail: userData.email,
       applicantPhone: userData.phone || '',
       applicantLocation: userData.location || '',
+      applicantCurrentRole: userData.currentRole || '',
+      applicantYearsExperience: userData.yearsOfExperience || 0,
       applicantSkills: userData.skills || [],
       applicantExperience: userData.experience || '',
       applicantEducation: userData.education || '',
-      // CV info
-      cvIncluded: includeCV && !!userData.resumeUrl,
-      cvUrl: cvInfo?.url || null,
-      cvFileName: cvInfo?.fileName || null,
+      applicantBio: userData.bio || '',
+      applicantPortfolio: userData.portfolio || '',
+      applicantLinkedin: userData.linkedin || '',
+      applicantGithub: userData.github || '',
+      
+      // CV/Resume
+      hasResume: !!userData.resumeUrl,
+      resumeUrl: userData.resumeUrl || null,
+      resumeFileName: userData.resumeFileName || null,
+      cvText: userData.cvText || null,
+      
       // Job info
       jobTitle: jobData.title,
       companyName: jobData.company,
       companyId: jobData.companyId || null,
+      jobLocation: jobData.location,
+      jobType: jobData.type,
+      jobSalary: jobData.salary,
+      
       // Timestamps
       appliedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -104,14 +101,11 @@ export default async function handler(req, res) {
 
     const result = await db.collection('applications').add(application);
 
-    // Optional: Send email notification to employer with CV link
-    // await sendEmailNotification(application);
-
     return res.status(200).json({
       success: true,
-      message: 'Application submitted successfully with CV!',
+      message: 'Application submitted successfully with full profile and CV!',
       applicationId: result.id,
-      cvIncluded: application.cvIncluded
+      cvIncluded: application.hasResume
     });
 
   } catch (error) {
