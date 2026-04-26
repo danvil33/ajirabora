@@ -54,7 +54,7 @@ const AjiraBoraAI = ({ jobId, jobTitle }) => {
         className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-semibold transition-all duration-300 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-md hover:shadow-lg disabled:opacity-60"
       >
         <MdOutlineSmartToy className="text-xl" />
-        {loading ? "Preparing AI..." : "Analyze with Danvil AI"}
+        {loading ? "Preparing AI..." : "Analyze with ajirabora AI"}
         <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full">
           AI
         </span>
@@ -66,7 +66,7 @@ const AjiraBoraAI = ({ jobId, jobTitle }) => {
           <div className="bg-white rounded-xl p-6 max-w-sm text-center shadow-xl animate-fadeIn">
             <div className="text-4xl mb-3">🤖</div>
             <h2 className="text-lg font-bold text-gray-800">
-              Danvil AI Ready
+              ajirabora AI Ready
             </h2>
 
             <p className="text-sm text-gray-600 mt-2">
@@ -78,7 +78,7 @@ const AjiraBoraAI = ({ jobId, jobTitle }) => {
             </div>
 
             <p className="text-xs text-gray-500 mt-2">
-              Danvil AI is opening... just paste and send.
+              ajirabora AI is opening... just paste and send.
             </p>
 
             <button
