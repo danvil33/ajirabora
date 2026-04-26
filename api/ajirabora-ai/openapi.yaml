@@ -8,38 +8,58 @@ paths:
   /api/ajirabora-ai/analyze:
     post:
       summary: Analyze job match
-      operationId: analyzeJob
+      operationId: analyzeJobMatch
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [userId, jobId]
+              required:
+                - userId
+                - jobId
               properties:
-                userId: { type: string }
-                jobId: { type: string }
+                userId:
+                  type: string
+                jobId:
+                  type: string
       responses:
-        '200': { description: Success }
+        '200':
+          description: Success
+        '401':
+          description: Unauthorized
   /api/ajirabora-ai/apply:
     post:
       summary: Submit application
-      operationId: applyToJob
+      operationId: submitJobApplication
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [userId, jobId, coverLetter]
+              required:
+                - userId
+                - jobId
+                - coverLetter
               properties:
-                userId: { type: string }
-                jobId: { type: string }
-                coverLetter: { type: string }
-                matchScore: { type: number }
-                matchReasons: { type: array }
+                userId:
+                  type: string
+                jobId:
+                  type: string
+                coverLetter:
+                  type: string
+                matchScore:
+                  type: number
+                matchReasons:
+                  type: array
+                  items:
+                    type: string
       responses:
-        '200': { description: Success }
+        '200':
+          description: Success
+        '401':
+          description: Unauthorized
 components:
   securitySchemes:
     apiKey:
