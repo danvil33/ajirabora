@@ -26,7 +26,14 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'Invalid API key' });
     }
 
-    const { userId, jobId, coverLetter, matchScore, matchReasons } = req.body;
+    const { 
+      userId, 
+      jobId, 
+      coverLetter, 
+      matchScore, 
+      matchReasons,
+      includeCV = true  // New parameter
+    } = req.body;
 
     if (!userId || !jobId || !coverLetter) {
       return res.status(400).json({ error: 'userId, jobId, and coverLetter required' });
@@ -52,6 +59,21 @@ export default async function handler(req, res) {
     if (!userDoc.exists) return res.status(404).json({ error: 'User not found' });
     if (!jobDoc.exists) return res.status(404).json({ error: 'Job not found' });
 
+    const userData = userDoc.data();
+    const jobData = jobDoc.data();
+
+    // Prepare CV information
+    let cvInfo = null;
+    if (includeCV && userData.resumeUrl) {
+      cvInfo = {
+        url: userData.resumeUrl,
+        fileName: userData.resumeFileName || 'resume.pdf',
+        fileType: userData.resumeFileType || 'pdf',
+        included: true
+      };
+    }
+
+    // Create application with CV
     const application = {
       userId,
       jobId,
@@ -59,20 +81,37 @@ export default async function handler(req, res) {
       matchScore: matchScore || 0,
       matchReasons: matchReasons || [],
       status: 'pending',
-      applicantName: userDoc.data().fullName || userDoc.data().name || 'Unknown',
-      applicantEmail: userDoc.data().email,
-      jobTitle: jobDoc.data().title,
-      companyName: jobDoc.data().company,
+      // Applicant info
+      applicantName: userData.fullName || userData.name || 'Unknown',
+      applicantEmail: userData.email,
+      applicantPhone: userData.phone || '',
+      applicantLocation: userData.location || '',
+      applicantSkills: userData.skills || [],
+      applicantExperience: userData.experience || '',
+      applicantEducation: userData.education || '',
+      // CV info
+      cvIncluded: includeCV && !!userData.resumeUrl,
+      cvUrl: cvInfo?.url || null,
+      cvFileName: cvInfo?.fileName || null,
+      // Job info
+      jobTitle: jobData.title,
+      companyName: jobData.company,
+      companyId: jobData.companyId || null,
+      // Timestamps
       appliedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
 
     const result = await db.collection('applications').add(application);
 
+    // Optional: Send email notification to employer with CV link
+    // await sendEmailNotification(application);
+
     return res.status(200).json({
       success: true,
-      message: 'Application submitted successfully!',
-      applicationId: result.id
+      message: 'Application submitted successfully with CV!',
+      applicationId: result.id,
+      cvIncluded: application.cvIncluded
     });
 
   } catch (error) {
