@@ -1,55 +1,18 @@
 import { db } from '../_utils/firebaseAdmin.js';
 
-// Helper function to fetch and extract text from PDF/URL
-async function extractCVText(resumeUrl) {
-  if (!resumeUrl) return null;
-  
-  try {
-    // Fetch the file from the URL
-    const response = await fetch(resumeUrl);
-    const buffer = await response.arrayBuffer();
-    
-    // Try to extract text based on file type
-    const urlLower = resumeUrl.toLowerCase();
-    
-    // For PDF files
-    if (urlLower.endsWith('.pdf')) {
-      // For PDF, we'll just return the URL and let GPT know it's a PDF
-      // GPT can't read PDF directly, but we can try text extraction
-      return {
-        text: "PDF file - User has uploaded a resume/CV. Please ask them to paste the content or describe their experience.",
-        isPdf: true,
-        url: resumeUrl
-      };
-    }
-    
-    // For DOC/DOCX files
-    if (urlLower.endsWith('.doc') || urlLower.endsWith('.docx')) {
-      return {
-        text: "DOC file - User has uploaded a resume/CV. Please ask them to paste the content or describe their experience.",
-        isDoc: true,
-        url: resumeUrl
-      };
-    }
-    
-    // For text files
-    if (urlLower.endsWith('.txt')) {
-      const text = await response.text();
-      return { text: text, isText: true, url: resumeUrl };
-    }
-    
-    return {
-      text: "CV/Resume available but in a format that needs manual review.",
-      url: resumeUrl
-    };
-    
-  } catch (error) {
-    console.error('CV text extraction error:', error.message);
-    return { 
-      text: "Unable to fetch CV content. Please ask user to describe their experience.",
-      error: true
-    };
-  }
+// Helper function to ensure skills is always an array
+function ensureArray(value) {
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'string') return value.split(',').map(s => s.trim());
+  if (value === null || value === undefined) return [];
+  return [];
+}
+
+// Helper function to ensure string
+function ensureString(value) {
+  if (typeof value === 'string') return value;
+  if (value === null || value === undefined) return '';
+  return String(value);
 }
 
 export default async function handler(req, res) {
@@ -105,56 +68,67 @@ export default async function handler(req, res) {
     const userData = userDoc.data();
     const jobData = jobDoc.data();
 
-    // Extract CV text if resume exists
-    let cvContent = null;
+    // Safely extract data with fallbacks
+    const userSkills = ensureArray(userData.skills);
+    const jobSkills = ensureArray(jobData.skills);
     
-    if (userData.resumeUrl) {
-      cvContent = await extractCVText(userData.resumeUrl);
-    }
+    const userName = userData.fullName || userData.name || 'Not specified';
+    const userEmail = userData.email || 'Not specified';
+    const userPhone = userData.phone || 'Not specified';
+    const userLocation = userData.location || 'Not specified';
+    const userCurrentRole = userData.currentRole || 'Not specified';
+    const userYearsExperience = userData.yearsOfExperience || 0;
+    const userExperience = ensureString(userData.experience);
+    const userEducation = ensureString(userData.education);
+    const userPortfolio = userData.portfolio || 'Not specified';
+    const userLinkedin = userData.linkedin || 'Not specified';
 
-    // Build user profile summary for GPT
-    const userSkills = userData.skills || [];
-    const userExperience = userData.experience || '';
-    const userEducation = userData.education || '';
+    // Build profile summary
+    const profileSummary = `
+Name: ${userName}
+Email: ${userEmail}
+Phone: ${userPhone}
+Location: ${userLocation}
+Current Role: ${userCurrentRole}
+Years Experience: ${userYearsExperience}
+Skills: ${userSkills.join(', ') || 'None specified'}
+Experience: ${userExperience || 'None specified'}
+Education: ${userEducation || 'None specified'}
+Portfolio: ${userPortfolio}
+LinkedIn: ${userLinkedin}
+    `.trim();
+
+    // CV/Resume info
+    const hasResume = !!userData.resumeUrl;
+    const resumeUrl = userData.resumeUrl || null;
+    const resumeFileName = userData.resumeFileName || null;
 
     return res.status(200).json({
       success: true,
       user: {
         id: userId,
-        name: userData.fullName || userData.name || 'Not specified',
-        email: userData.email || 'Not specified',
-        phone: userData.phone || 'Not specified',
-        location: userData.location || 'Not specified',
+        name: userName,
+        email: userEmail,
+        phone: userPhone,
+        location: userLocation,
         
-        // Profile summary for GPT to understand quickly
-        profileSummary: `
-Name: ${userData.fullName || userData.name || 'Not specified'}
-Current Role: ${userData.currentRole || 'Not specified'}
-Years Experience: ${userData.yearsOfExperience || 'Not specified'}
-Skills: ${userSkills.join(', ') || 'Not specified'}
-Experience: ${userExperience || 'Not specified'}
-Education: ${userEducation || 'Not specified'}
-Portfolio: ${userData.portfolio || 'Not specified'}
-LinkedIn: ${userData.linkedin || 'Not specified'}
-        `.trim(),
+        // Profile summary for GPT
+        profileSummary: profileSummary,
         
-        // Structured data for detailed analysis
+        // Structured data
         skills: userSkills,
         experience: userExperience,
         education: userEducation,
-        currentRole: userData.currentRole || '',
-        yearsOfExperience: userData.yearsOfExperience || 0,
-        portfolio: userData.portfolio || '',
-        linkedin: userData.linkedin || '',
+        currentRole: userCurrentRole,
+        yearsOfExperience: userYearsExperience,
+        portfolio: userPortfolio,
+        linkedin: userLinkedin,
         
-        // CV/Resume information
-        hasResume: !!userData.resumeUrl,
-        resumeUrl: userData.resumeUrl || null,
-        resumeFileName: userData.resumeFileName || null,
-        cvText: cvContent?.text || null,  // Extracted text if available
-        cvNote: !userData.resumeUrl ? "No CV uploaded. Consider adding one." : 
-                (cvContent?.text ? "CV content extracted successfully." : 
-                "CV available but text extraction limited. Ask user about their experience.")
+        // CV/Resume
+        hasResume: hasResume,
+        resumeUrl: resumeUrl,
+        resumeFileName: resumeFileName,
+        cvNote: !hasResume ? "No CV uploaded. Consider adding one." : "CV available. Ask user about their experience if needed."
       },
       job: {
         id: jobId,
@@ -162,7 +136,7 @@ LinkedIn: ${userData.linkedin || 'Not specified'}
         company: jobData.company || 'Not specified',
         description: jobData.description || 'Not specified',
         requirements: jobData.requirements || 'Not specified',
-        skills: jobData.skills || [],
+        skills: jobSkills,
         type: jobData.type || 'Not specified',
         location: jobData.location || 'Not specified',
         salary: jobData.salary || 'Not specified',
@@ -173,6 +147,10 @@ LinkedIn: ${userData.linkedin || 'Not specified'}
 
   } catch (error) {
     console.error('Error:', error.message);
-    return res.status(500).json({ error: 'Server error: ' + error.message });
+    return res.status(500).json({ 
+      error: 'Server error', 
+      message: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 }
