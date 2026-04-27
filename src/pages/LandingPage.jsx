@@ -23,7 +23,14 @@ import {
   FaClock,
   FaSignOutAlt,
   FaUser,
-  FaCog
+  FaCog,
+  FaFacebook,
+  FaTwitter,
+  FaLinkedin,
+  FaInstagram,
+  FaEnvelope,
+  FaPhone,
+  FaMapMarkerAlt as FaMapPin
 } from "react-icons/fa";
 
 const LandingPage = () => {
@@ -106,12 +113,12 @@ const LandingPage = () => {
   return (
     <>
       {/* MOBILE VIEW */}
-      <div className="md:hidden bg-white min-h-screen">
+      <div className="md:hidden bg-white min-h-screen flex flex-col">
         {/* Mobile Header */}
         <div className={`fixed top-0 left-0 right-0 z-50 bg-[#1A2A4A] ${scrolled ? "shadow-sm" : ""}`}>
           <div className="flex items-center justify-between px-4 py-3">
             <Link to="/" className="flex items-center">
-              <img src={logo} alt="AjiraBora" className="h-8 w-auto" />
+              <img src={logo} alt="AjiraBora" className="h-12 w-auto" />
             </Link>
             <div className="flex items-center gap-4">
               <FaBell className="text-white text-xl" />
@@ -211,7 +218,7 @@ const LandingPage = () => {
         </div>
 
         {/* Recent Jobs */}
-        <div className="px-4 py-4">
+        <div className="px-4 py-4 flex-1">
           <div className="flex justify-between items-center mb-3">
             <h2 className="text-base font-bold text-gray-900">Recent Jobs</h2>
             <Link to="/jobs" className="text-xs text-[#FF8C00] font-medium">View all <FaChevronRight className="inline text-xs" /></Link>
@@ -275,8 +282,72 @@ const LandingPage = () => {
           <Link to="/register" className="bg-[#FF8C00] text-white px-4 py-2 rounded-lg text-xs font-semibold">Sign up</Link>
         </div>
 
+        {/* MOBILE FOOTER */}
+        <div className="bg-[#1A2A4A] text-white mt-4">
+          {/* Contact Info */}
+          <div className="px-4 py-6 border-b border-white/20">
+            <div className="flex items-center gap-3 mb-3">
+              <img src={logo} alt="AjiraBora" className="h-14 w-auto" />
+            </div>
+            <div className="space-y-2 text-sm text-gray-300">
+              <p className="flex items-center gap-2">
+                <FaPhone className="text-[#FF8C00] text-sm" />
+                <span>+255 743470389</span>
+              </p>
+              <p className="flex items-center gap-2">
+                <FaEnvelope className="text-[#FF8C00] text-sm" />
+                <span>support@ajiabora.com</span>
+              </p>
+              <p className="flex items-center gap-2">
+                <FaMapPin className="text-[#FF8C00] text-sm" />
+                <span>Dar es Salaam, Tanzania</span>
+              </p>
+            </div>
+          </div>
+
+          {/* Quick Links */}
+          <div className="px-4 py-4 border-b border-white/20">
+            <h3 className="font-semibold text-white mb-3">Quick Links</h3>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <Link to="/jobs" className="text-gray-300 hover:text-[#FF8C00] transition">Find Jobs</Link>
+              <Link to="/post-job" className="text-gray-300 hover:text-[#FF8C00] transition">Post a Job</Link>
+              <Link to="/companies" className="text-gray-300 hover:text-[#FF8C00] transition">Companies</Link>
+              <Link to="/about" className="text-gray-300 hover:text-[#FF8C00] transition">About Us</Link>
+              <Link to="/contact" className="text-gray-300 hover:text-[#FF8C00] transition">Contact</Link>
+              <Link to="/privacy" className="text-gray-300 hover:text-[#FF8C00] transition">Privacy Policy</Link>
+              <Link to="/terms" className="text-gray-300 hover:text-[#FF8C00] transition">Terms of Service</Link>
+              <Link to="/cookies" className="text-gray-300 hover:text-[#FF8C00] transition">Cookie Policy</Link>
+            </div>
+          </div>
+
+          {/* Social Links */}
+          <div className="px-4 py-4 border-b border-white/20">
+            <h3 className="font-semibold text-white mb-3">Follow Us</h3>
+            <div className="flex gap-4">
+              <a href="#" className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-[#FF8C00] transition">
+                <FaFacebook className="text-white" />
+              </a>
+              <a href="#" className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-[#FF8C00] transition">
+                <FaTwitter className="text-white" />
+              </a>
+              <a href="#" className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-[#FF8C00] transition">
+                <FaLinkedin className="text-white" />
+              </a>
+              <a href="#" className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-[#FF8C00] transition">
+                <FaInstagram className="text-white" />
+              </a>
+            </div>
+          </div>
+
+          {/* Copyright */}
+          <div className="px-4 py-4 text-center text-gray-400 text-xs">
+            <p>&copy; {new Date().getFullYear()} AjiraBora. All rights reserved.</p>
+            <p className="mt-1">Empowering Tanzanian talent</p>
+          </div>
+        </div>
+
         {/* Bottom Nav */}
-        <div className="border-t mt-4 pt-4 pb-8">
+        <div className="border-t pt-4 pb-8 bg-white">
           <div className="flex justify-around text-center text-xs text-gray-500">
             <Link to="/jobs" className="flex flex-col items-center gap-1 text-[#FF8C00]">
               <FaSearch className="text-lg" />
@@ -294,7 +365,7 @@ const LandingPage = () => {
         </div>
       </div>
 
-      {/* DESKTOP VIEW */}
+      {/* DESKTOP VIEW - unchanged from before */}
       <div className="hidden md:block min-h-screen bg-gray-50">
         {/* Top Bar */}
         <div className="bg-[#1A2A4A] text-white text-sm py-2">
@@ -346,7 +417,7 @@ const LandingPage = () => {
         <nav className={`bg-white border-b sticky top-0 z-50 ${scrolled ? "shadow-sm" : ""}`}>
           <div className="max-w-7xl mx-auto px-6 flex justify-between items-center h-16">
             <Link to="/" className="flex items-center">
-              <img src={logo} alt="AjiraBora" className="h-10 w-auto object-contain" />
+              <img src={logo} alt="AjiraBora" className="h-16 w-auto object-contain" />
             </Link>
             <div className="flex gap-8">
               <Link to="/jobs" className="text-gray-700 hover:text-[#FF8C00] font-medium">Find Jobs</Link>
@@ -397,7 +468,7 @@ const LandingPage = () => {
         </div>
 
         {/* How It Works */}
-        <div className="max-w-7xl mx-auto px-6 py-16">
+        <div className="max-w-7lx mx-auto px-6 py-16">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-gray-900 mb-3">How AjiraBora Works</h2>
             <p className="text-gray-500">Three simple steps to your next career move</p>
