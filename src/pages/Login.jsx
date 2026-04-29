@@ -11,7 +11,7 @@ import { auth, db } from "../firebase/config";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { signInWithGoogle, linkGoogleAccount } from "../services/googleAuthService";
 import { signInWithGoogleNative, isNativePlatform } from "../services/nativeGoogleAuth";
-import AdvancedCaptcha from "../components/AdvancedCaptcha";
+import AdvancedCaptcha from "../Components/AdvancedCaptcha";
 import {
   FaEnvelope,
   FaLock,

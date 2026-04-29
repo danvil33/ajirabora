@@ -10,15 +10,22 @@ import {
   FaArrowLeft
 } from "react-icons/fa";
 import logo from "../Assets/logo.png";
+import AdvancedCaptcha from "../Components/AdvancedCaptcha";
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isCaptchaVerified, setIsCaptchaVerified] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!isCaptchaVerified) {
+      setError("Please verify you're human by ticking the box.");
+      return;
+    }
 
     const cleanEmail = email.trim();
     if (!cleanEmail) {
@@ -111,10 +118,13 @@ const ForgotPassword = () => {
               </div>
             </div>
 
+            {/* CAPTCHA */}
+            <AdvancedCaptcha onVerify={setIsCaptchaVerified} />
+
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !isCaptchaVerified}
               className="w-full bg-[#FF8C00] hover:bg-orange-600 text-white font-semibold py-2.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {loading ? (
