@@ -38,10 +38,13 @@ const ForgotPassword = () => {
     setSuccess("");
 
     try {
-      await sendPasswordResetEmail(auth, cleanEmail, {
-        url: `${window.location.origin}/login`,
-        handleCodeInApp: false,
-      });
+      // Custom action code settings for your own reset page
+      const actionCodeSettings = {
+        url: `${window.location.origin}/reset-password`,
+        handleCodeInApp: true, // Important: true for custom handler
+      };
+
+      await sendPasswordResetEmail(auth, cleanEmail, actionCodeSettings);
 
       setSuccess(
         "Password reset email sent! Check your inbox and spam folder."
