@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { auth } from "../firebase/config";
-import { applyActionCode, verifyPasswordResetCode } from "firebase/auth";
+import { applyActionCode, verifyPasswordResetCode, confirmPasswordReset } from "firebase/auth";
 import { FaCheckCircle, FaSpinner, FaExclamationTriangle, FaEnvelope, FaLock } from "react-icons/fa";
 import logo from "../Assets/logo.png";
 
@@ -250,7 +250,6 @@ const PasswordResetForm = ({ oobCode, email, onSuccess }) => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const { confirmPasswordReset } = require("firebase/auth");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
