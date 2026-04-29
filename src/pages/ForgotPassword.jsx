@@ -38,10 +38,10 @@ const ForgotPassword = () => {
     setSuccess("");
 
     try {
-      // Custom action code settings for your own reset page
+      // IMPORTANT: Use HTTPS URL with your authorized domain
       const actionCodeSettings = {
-        url: `${window.location.origin}/reset-password`,
-        handleCodeInApp: true, // Important: true for custom handler
+        url: "https://ajirabora.com/verify-email",  // ← Must be in authorized domains
+        handleCodeInApp: true,
       };
 
       await sendPasswordResetEmail(auth, cleanEmail, actionCodeSettings);
@@ -62,6 +62,9 @@ const ForgotPassword = () => {
           break;
         case "auth/too-many-requests":
           setError("Too many requests. Please wait a few minutes.");
+          break;
+        case "auth/unauthorized-continue-uri":
+          setError("Domain not authorized. Please contact support.");
           break;
         default:
           setError("Failed to send reset email. Please try again.");

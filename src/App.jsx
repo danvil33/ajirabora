@@ -29,6 +29,7 @@ import VerifyEmail from "./pages/VerifyEmail";
 import LandingPage from "./pages/LandingPage";
 import ChatBubble from "./Components/ChatBubble";  // ← ADD THIS LINE
 import AdminChat from "./pages/AdminChat";
+import ResetPassword from "./pages/ResetPassword";
 // Component to conditionally show BottomNav
 const AppContent = () => {
   const location = useLocation();
@@ -42,6 +43,7 @@ const AppContent = () => {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-800">
       <Routes>
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/admin/chat" element={<AdminChat />} />
 <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/" element={<LandingPage />} />
