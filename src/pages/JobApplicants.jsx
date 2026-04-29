@@ -30,7 +30,7 @@ import {
   HiLocationMarker as HiLocationIcon,
   HiLink
 } from "react-icons/hi";
-import { FaSpinner, FaFilePdf, FaFileWord, FaFileAlt, FaRobot, FaTrophy, FaStar, FaTimesCircle, FaChartLine } from "react-icons/fa";
+import { FaSpinner, FaFilePdf, FaFileWord, FaFileAlt, FaRobot, FaTrophy, FaStar, FaTimesCircle, FaChartLine, FaCheckCircle } from "react-icons/fa";
 import { db } from "../firebase/config";
 import { doc, getDoc } from "firebase/firestore";
 
@@ -334,13 +334,17 @@ Be honest and thorough.`;
                 </div>
                 
                 {/* AI RANKING BUTTON */}
-                <button
-                  onClick={openAIRanking}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg font-semibold hover:from-purple-700 hover:to-indigo-700 transition-all shadow-md"
-                >
-                  <FaRobot className="text-lg" />
-                  Hire with AjiraBora AI
-                </button>
+                {/* AI RANKING BUTTON - Brand Colors */}
+<button
+  onClick={openAIRanking}
+  className="inline-flex items-center gap-2 px-4 py-2 bg-[#1A2A4A] text-white rounded-lg font-semibold hover:bg-[#2a3d6e] transition-all shadow-md border border-[#FF8C00]/30"
+>
+  <FaRobot className="text-lg text-[#FF8C00]" />
+  Hire with AjiraBora AI
+  <span className="text-xs bg-[#FF8C00]/20 text-[#FF8C00] px-2 py-0.5 rounded-full ml-1">
+    AI
+  </span>
+</button>
               </div>
             </div>
           )}
