@@ -30,7 +30,9 @@ import {
   HiLocationMarker as HiLocationIcon,
   HiLink
 } from "react-icons/hi";
-import { FaSpinner, FaFilePdf, FaFileWord, FaFileAlt } from "react-icons/fa";
+import { FaSpinner, FaFilePdf, FaFileWord, FaFileAlt, FaRobot, FaTrophy, FaStar, FaTimesCircle, FaChartLine } from "react-icons/fa";
+import { db } from "../firebase/config";
+import { doc, getDoc } from "firebase/firestore";
 
 const JobApplicants = () => {
   const { jobId } = useParams();
@@ -46,6 +48,9 @@ const JobApplicants = () => {
   const [selectedApplication, setSelectedApplication] = useState(null);
   const [showInterviewModal, setShowInterviewModal] = useState(false);
   const [showCommentModal, setShowCommentModal] = useState(false);
+  const [aiRanking, setAiRanking] = useState(null);
+  const [loadingRanking, setLoadingRanking] = useState(false);
+  const [showRankingModal, setShowRankingModal] = useState(false);
   const [interviewData, setInterviewData] = useState({
     date: "",
     time: "",
@@ -65,6 +70,7 @@ const JobApplicants = () => {
       return;
     }
     fetchData();
+    fetchAIRanking();
   }, [jobId]);
 
   useEffect(() => {
@@ -85,6 +91,49 @@ const JobApplicants = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchAIRanking = async () => {
+    setLoadingRanking(true);
+    try {
+      const rankingDoc = await getDoc(doc(db, 'rankings', jobId));
+      if (rankingDoc.exists()) {
+        setAiRanking(rankingDoc.data());
+      }
+    } catch (error) {
+      console.error("Error fetching AI ranking:", error);
+    } finally {
+      setLoadingRanking(false);
+    }
+  };
+
+  const openAIRanking = () => {
+    const message = `🎯 RANK CANDIDATES FOR JOB
+
+JOB ID: ${jobId}
+JOB TITLE: ${job?.title}
+COMPANY: ${job?.company}
+EMPLOYER ID: ${user?.uid}
+
+Please:
+1. Call getJobApplicants API to fetch all candidates
+2. Analyze each candidate's profile and CV
+3. Rank candidates by match score (0-100%)
+4. For each candidate provide: strengths, weaknesses, recommendation
+5. Call saveCandidateRanking API to save results
+
+Be honest and thorough.`;
+
+    const encodedMessage = encodeURIComponent(message);
+    const gptUrl = `https://chatgpt.com/g/g-69ed8fb6dbc48191abe8b564a009e2a5-ajirabora-ai?prompt=${encodedMessage}`;
+    
+    navigator.clipboard.writeText(message);
+    setShowRankingModal(true);
+    window.open(gptUrl, "_blank");
+    
+    setTimeout(() => {
+      fetchAIRanking();
+    }, 5000);
   };
 
   const filterApplications = () => {
@@ -155,13 +204,10 @@ const JobApplicants = () => {
         scheduledBy: user.uid,
         scheduledByEmail: user.email
       });
-      
-      // Also update application status to "interview"
       await updateApplicationStatus(selectedApplication.id, "interview");
-      
       alert(`Interview scheduled for ${selectedApplication.applicantName}`);
       setShowInterviewModal(false);
-      fetchData(); // Refresh
+      fetchData();
     } catch (error) {
       console.error("Error scheduling interview:", error);
       alert("Failed to schedule interview");
@@ -172,17 +218,15 @@ const JobApplicants = () => {
     try {
       await addSelectionComment(selectedApplication.id, commentData.comment, commentData.selectionStatus);
       
-      // Update application status based on selection
       let newStatus = selectedApplication.status;
       if (commentData.selectionStatus === "shortlisted") newStatus = "shortlisted";
       if (commentData.selectionStatus === "selected") newStatus = "hired";
       if (commentData.selectionStatus === "rejected") newStatus = "rejected";
       
       await updateApplicationStatus(selectedApplication.id, newStatus);
-      
       alert(`Selection status updated for ${selectedApplication.applicantName}`);
       setShowCommentModal(false);
-      fetchData(); // Refresh
+      fetchData();
     } catch (error) {
       console.error("Error adding comment:", error);
       alert("Failed to update selection status");
@@ -220,6 +264,22 @@ const JobApplicants = () => {
     );
   };
 
+  const getScoreColor = (score) => {
+    if (score >= 80) return "bg-green-100 text-green-700";
+    if (score >= 60) return "bg-yellow-100 text-yellow-700";
+    if (score >= 40) return "bg-orange-100 text-orange-700";
+    return "bg-red-100 text-red-700";
+  };
+
+  const getRecommendationIcon = (rec) => {
+    switch(rec) {
+      case 'HIRE': return <FaTrophy className="text-yellow-500" />;
+      case 'INTERVIEW': return <FaStar className="text-blue-500" />;
+      case 'REJECT': return <FaTimesCircle className="text-red-500" />;
+      default: return <FaCheckCircle className="text-gray-500" />;
+    }
+  };
+
   const getFileIcon = (url) => {
     if (!url) return <FaFileAlt className="text-gray-400" />;
     if (url.includes('.pdf')) return <FaFilePdf className="text-red-500" />;
@@ -248,30 +308,117 @@ const JobApplicants = () => {
           
           {job && (
             <div className="bg-white dark:bg-slate-700 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-slate-600">
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                {job.title}
-              </h1>
-              <div className="flex flex-wrap gap-4 mt-2 text-sm text-gray-600 dark:text-gray-400">
-                <span className="flex items-center gap-1">
-                  <HiBriefcase />
-                  {job.company}
-                </span>
-                <span className="flex items-center gap-1">
-                  <HiLocationMarker />
-                  {job.location || "Remote"}
-                </span>
-                <span className="flex items-center gap-1">
-                  <HiCalendar />
-                  Posted: {formatDate(job.postedAt)}
-                </span>
-                <span className="flex items-center gap-1 bg-indigo-100 dark:bg-indigo-900/30 px-2 py-0.5 rounded-full">
-                  <HiUser className="text-xs" />
-                  {applications.length} Applicant{applications.length !== 1 ? 's' : ''}
-                </span>
+              <div className="flex justify-between items-start flex-wrap gap-4">
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {job.title}
+                  </h1>
+                  <div className="flex flex-wrap gap-4 mt-2 text-sm text-gray-600 dark:text-gray-400">
+                    <span className="flex items-center gap-1">
+                      <HiBriefcase />
+                      {job.company}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <HiLocationMarker />
+                      {job.location || "Remote"}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <HiCalendar />
+                      Posted: {formatDate(job.postedAt)}
+                    </span>
+                    <span className="flex items-center gap-1 bg-indigo-100 dark:bg-indigo-900/30 px-2 py-0.5 rounded-full">
+                      <HiUser className="text-xs" />
+                      {applications.length} Applicant{applications.length !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                </div>
+                
+                {/* AI RANKING BUTTON */}
+                <button
+                  onClick={openAIRanking}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg font-semibold hover:from-purple-700 hover:to-indigo-700 transition-all shadow-md"
+                >
+                  <FaRobot className="text-lg" />
+                  Hire with AjiraBora AI
+                </button>
               </div>
             </div>
           )}
         </div>
+
+        {/* AI RANKING RESULTS SECTION */}
+        {aiRanking && aiRanking.rankingResults && (
+          <div className="mb-6 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-xl p-6 border border-purple-200 dark:border-purple-800">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-purple-800 dark:text-purple-300 flex items-center gap-2">
+                <FaChartLine />
+                AI Candidate Ranking Results
+              </h2>
+              <span className="text-sm text-purple-600 dark:text-purple-400">
+                Last analyzed: {new Date(aiRanking.createdAt).toLocaleDateString()}
+              </span>
+            </div>
+            
+            {aiRanking.rankingResults.topCandidate && (
+              <div className="bg-white dark:bg-slate-800 rounded-lg p-4 mb-4 border-2 border-yellow-400">
+                <div className="flex items-center gap-3">
+                  <FaTrophy className="text-3xl text-yellow-500" />
+                  <div>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Top Recommendation</p>
+                    <p className="text-lg font-bold text-gray-900 dark:text-white">
+                      {aiRanking.rankingResults.topCandidate} ({aiRanking.rankingResults.topScore}% match)
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            <div className="space-y-3">
+              {aiRanking.rankingResults.rankedCandidates?.slice(0, 5).map((candidate, idx) => (
+                <div key={idx} className="bg-white dark:bg-slate-800 rounded-lg p-4 shadow-sm">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-3">
+                      <div className="text-xl font-bold text-gray-400">#{idx + 1}</div>
+                      <div>
+                        <p className="font-semibold text-gray-900 dark:text-white">{candidate.name}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{candidate.userId}</p>
+                      </div>
+                    </div>
+                    <div className={`px-3 py-1 rounded-full font-bold text-sm ${getScoreColor(candidate.matchScore)}`}>
+                      {candidate.matchScore}% Match
+                    </div>
+                  </div>
+                  
+                  <div className="grid md:grid-cols-2 gap-4 mt-3 text-sm">
+                    <div>
+                      <p className="font-semibold text-green-600 dark:text-green-400">✅ Strengths</p>
+                      <ul className="list-disc list-inside text-gray-600 dark:text-gray-400">
+                        {candidate.strengths?.slice(0, 3).map((s, i) => <li key={i}>{s}</li>)}
+                      </ul>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-red-600 dark:text-red-400">⚠️ Weaknesses</p>
+                      <ul className="list-disc list-inside text-gray-600 dark:text-gray-400">
+                        {candidate.weaknesses?.slice(0, 3).map((w, i) => <li key={i}>{w}</li>)}
+                      </ul>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-3 pt-2 border-t flex items-center gap-2">
+                    {getRecommendationIcon(candidate.recommendation)}
+                    <span className={`font-medium ${
+                      candidate.recommendation === 'HIRE' ? 'text-green-600' :
+                      candidate.recommendation === 'INTERVIEW' ? 'text-blue-600' :
+                      candidate.recommendation === 'REJECT' ? 'text-red-600' : 'text-gray-600'
+                    }`}>
+                      Recommendation: {candidate.recommendation}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Search and Filter Bar */}
         <div className="mb-6 bg-white dark:bg-slate-700 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-slate-600">
@@ -325,14 +472,14 @@ const JobApplicants = () => {
                   <tr>
                     <td colSpan="8" className="px-4 py-8 text-center">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
-                    </td>
+                     </td>
                   </tr>
                 ) : filteredApplications.length === 0 ? (
                   <tr>
                     <td colSpan="8" className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
                       <HiDocumentText className="text-5xl mx-auto mb-2 text-gray-300" />
                       No applicants found
-                    </td>
+                     </td>
                   </tr>
                 ) : (
                   filteredApplications.map((app, index) => (
@@ -441,7 +588,6 @@ const JobApplicants = () => {
             </table>
           </div>
           
-          {/* Table Footer */}
           {!loading && filteredApplications.length > 0 && (
             <div className="px-4 py-3 border-t border-gray-200 dark:border-slate-600 text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-slate-800">
               Showing {filteredApplications.length} of {applications.length} applicant{applications.length !== 1 ? 's' : ''}
@@ -449,6 +595,35 @@ const JobApplicants = () => {
           )}
         </div>
       </div>
+
+      {/* AI Ranking Modal */}
+      {showRankingModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-xl p-6 max-w-md text-center shadow-xl">
+            <div className="w-20 h-20 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+              <FaRobot className="text-4xl text-purple-600" />
+            </div>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">AI Candidate Analysis</h2>
+            <p className="text-gray-600 dark:text-gray-400 mt-2">
+              AjiraBora AI is analyzing all candidates for this position.
+            </p>
+            <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+              <p className="text-green-600 dark:text-green-400 font-semibold flex items-center justify-center gap-2">
+                <FaCheckCircle /> Analysis started in ChatGPT
+              </p>
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
+              Results will appear on this page when complete.
+            </p>
+            <button
+              onClick={() => setShowRankingModal(false)}
+              className="mt-5 px-6 py-2 bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 transition w-full"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Interview Scheduling Modal */}
       {showInterviewModal && selectedApplication && (
