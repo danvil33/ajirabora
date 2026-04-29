@@ -11,6 +11,7 @@ import { auth, db } from "../firebase/config";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { signInWithGoogle, linkGoogleAccount } from "../services/googleAuthService";
 import { signInWithGoogleNative, isNativePlatform } from "../services/nativeGoogleAuth";
+import AdvancedCaptcha from "../components/AdvancedCaptcha";
 import {
   FaEnvelope,
   FaLock,
@@ -29,17 +30,15 @@ import poster from "../Assets/poster.png";
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
   const [resendMessage, setResendMessage] = useState("");
-
   const [showLinkingOption, setShowLinkingOption] = useState(false);
   const [pendingGoogleEmail, setPendingGoogleEmail] = useState("");
+  const [isCaptchaVerified, setIsCaptchaVerified] = useState(false);
 
   const navigate = useNavigate();
   const { setUser } = useAuth();
@@ -123,6 +122,11 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!isCaptchaVerified) {
+      setError("Please verify you're human by ticking the box.");
+      return;
+    }
 
     const cleanEmail = email.trim();
 
@@ -481,6 +485,9 @@ const Login = () => {
                   </div>
                 </div>
 
+                {/* Advanced CAPTCHA */}
+                <AdvancedCaptcha onVerify={setIsCaptchaVerified} />
+
                 <div className="text-right">
                   <Link
                     to="/forgot-password"
@@ -492,7 +499,7 @@ const Login = () => {
 
                 <button
                   type="submit"
-                  disabled={loading || resending}
+                  disabled={loading || resending || !isCaptchaVerified}
                   className="w-full bg-[#1A2A4A] dark:bg-[#0f1a2e] hover:bg-[#243b66] dark:hover:bg-[#1a2a4a] text-white font-semibold py-2.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-4 flex items-center justify-center gap-2"
                 >
                   {loading ? (

@@ -8,6 +8,7 @@ import PostJob from "./pages/PostJob";
 import EmployerDashboard from "./pages/EmployerDashboard";
 import Profile from "./pages/Profile";
 import JobsPage from "./pages/JobsPage";
+import ForgotPassword from "./pages/ForgotPassword";
 import MyApplications from "./pages/MyApplications";
 import BottomNav from "./Components/BottomNav";
 import JobApplicants from "./pages/JobApplicants";
@@ -42,7 +43,7 @@ const AppContent = () => {
     <div className="min-h-screen bg-gray-50 dark:bg-slate-800">
       <Routes>
         <Route path="/admin/chat" element={<AdminChat />} />
-
+<Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/" element={<LandingPage />} />
         <Route path="/home" element={<Home />} />
         <Route path="/verify-email" element={<VerifyEmail />} />
